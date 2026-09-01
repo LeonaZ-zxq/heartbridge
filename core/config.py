@@ -61,7 +61,7 @@ class Config:
         default_factory=lambda: _env("HB_OPENROUTER_MODEL", "meta-llama/llama-3.3-70b-instruct:free")
     )
     gemini_key: str = field(default_factory=lambda: _env("GEMINI_API_KEY", ""))
-    gemini_model: str = field(default_factory=lambda: _env("HB_GEMINI_MODEL", "gemini-2.5-flash"))
+    gemini_model: str = field(default_factory=lambda: _env("HB_GEMINI_MODEL", "gemini-3.6-flash"))
     llm_timeout_s: int = field(default_factory=lambda: _env_int("HB_LLM_TIMEOUT", 60))
 
     # ---------- 检索 ----------

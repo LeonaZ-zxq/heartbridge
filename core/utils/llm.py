@@ -101,29 +101,39 @@ class GeminiProvider:
             f"https://generativelanguage.googleapis.com/v1beta/models/"
             f"{self.model}:generateContent"
         )
-        gen: dict = {"temperature": temperature, "maxOutputTokens": 8192}
-        if "2.5" in self.model or "3." in self.model:
-            # 2.5 之后的 flash 默认开思考。不关掉的话，思考会先吃掉输出预算，
-            # 于是 candidate 里根本没有 text 部分——表现出来是一句
-            # "返回结构异常"，看不出真实原因。蒸馏是结构化抽取，
-            # 不需要思考预算。
-            gen["thinkingConfig"] = {"thinkingBudget": 0}
-        try:
-            resp = httpx.post(
-                url,
-                headers={"x-goog-api-key": self.api_key},
-                json={
-                    "system_instruction": {"parts": [{"text": system}]},
-                    "contents": [{"parts": [{"text": user}]}],
-                    "generationConfig": gen,
-                },
-                timeout=self.timeout_s,
-            )
-        except Exception as exc:  # noqa: BLE001
-            raise LLMError(f"Gemini 请求失败: {exc}") from exc
+        base: dict = {"temperature": temperature, "maxOutputTokens": 8192}
+        # 2.5 之后的 flash 默认开思考。不关掉的话，思考会先吃掉输出预算，
+        # 于是 candidate 里根本没有 text 部分——表现出来是一句
+        # "返回结构异常"，看不出真实原因。蒸馏是结构化抽取，不需要思考预算。
+        #
+        # 但**关掉的写法会随版本变**（thinkingBudget / thinkingLevel / 不给关）。
+        # 与其赌一个参数名，不如带着它试一次，被 400 拒了就脱掉重发：
+        # 模型名会变、参数会改名，而"先试再降级"这个结构不会。
+        attempts = [{**base, "thinkingConfig": {"thinkingBudget": 0}}, base]
 
-        if resp.status_code != 200:
-            raise LLMError(f"Gemini HTTP {resp.status_code}: {resp.text[:300]}")
+        def _post(gen: dict):
+            try:
+                return httpx.post(
+                    url,
+                    headers={"x-goog-api-key": self.api_key},
+                    json={
+                        "system_instruction": {"parts": [{"text": system}]},
+                        "contents": [{"parts": [{"text": user}]}],
+                        "generationConfig": gen,
+                    },
+                    timeout=self.timeout_s,
+                )
+            except Exception as exc:  # noqa: BLE001
+                raise LLMError(f"Gemini 请求失败: {exc}") from exc
+
+        for i, gen in enumerate(attempts):
+            resp = _post(gen)
+            if resp.status_code == 200:
+                break
+            # 只对"参数不被接受"降级。404/401/429 降级也没用，直接抛。
+            last_attempt = i == len(attempts) - 1
+            if last_attempt or resp.status_code != 400:
+                raise LLMError(f"Gemini HTTP {resp.status_code}: {resp.text[:300]}")
         try:
             return resp.json()["candidates"][0]["content"]["parts"][0]["text"]
         except (KeyError, IndexError, ValueError) as exc:
