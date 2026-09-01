@@ -184,6 +184,12 @@ def main() -> int:
     ap.add_argument("--no-dedup", action="store_true")
     args = ap.parse_args()
 
+    for flag, path in (("--dir", args.dir), ("--audio", args.audio),
+                       ("--transcript-file", args.transcript_file)):
+        if path and not path.exists():
+            print(f"{flag} 指向的路径不存在：{path}")
+            return 1
+
     if args.dir:
         return run_batch(args)
 
@@ -195,13 +201,20 @@ def main() -> int:
 
     retriever = None if args.no_dedup else build_retriever(existing, backend="bm25")
 
+    llm = get_llm(CONFIG)
+    _preflight(llm)
+
+    # 单文件和批量必须走同一条路径。否则「先拿一个文件试」这个动作
+    # 验证不了任何东西——试通的那条路和真正要跑的那条不是同一条。
+    local = args.audio or args.transcript_file
     result = ingest(
         url=args.url,
         audio=args.audio,
         transcript_text=args.transcript_file.read_text(encoding="utf-8")
         if args.transcript_file else None,
-        llm=get_llm(CONFIG),
+        llm=llm,
         retriever=retriever,
+        meta=_source_from_name(local) if local else None,
         start_index=start,
         whisper_model=args.whisper_model,
     )
