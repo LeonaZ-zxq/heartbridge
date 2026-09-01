@@ -1,0 +1,12 @@
+# --- 核心（轻量，CI 必装）---
+pydantic>=2.7
+jieba>=0.42.1
+python-dotenv>=1.0
+httpx>=0.27
+
+# --- 测试 ---
+pytest>=8.0
+
+# --- 稠密检索（本地跑真实场景时装；CI 可跳过）---
+# sentence-transformers>=3.0
+# chromadb>=0.5

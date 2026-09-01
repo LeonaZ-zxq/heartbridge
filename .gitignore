@@ -1,0 +1,24 @@
+# --- secrets: never commit ---
+.env
+.env.local
+.streamlit/secrets.toml
+
+# --- private data: partner's mental-health info never leaves this machine ---
+data/
+!data/.gitkeep
+
+# --- python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+
+# --- os / editor ---
+.DS_Store
+.idea/
+.vscode/
