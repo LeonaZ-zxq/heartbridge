@@ -32,7 +32,7 @@ It is also deliberately built as an engineering artefact. Every design decision 
 | **Every reply option must cite a retrieved card, and the citation is validated** | A citation to a card that was not retrieved is a hallucination, and is dropped before the user sees it. |
 | **Two evaluation sets, and the honest one is the lower one** | The dev set scores 100%. It's contaminated. The held-out set scores 36.7%. Both are reported. |
 | **In the ingestion pipeline, provenance is stamped by code, not generated** | `source` and `id` are overwritten from download metadata after the model returns. A model cannot invent where a piece of advice came from, because it is never asked to. |
-| **All LLM calls sit behind one interface with a deterministic mock** | The entire 100-test suite runs offline, free, and reproducibly — including in CI, with no API key and no GPU. |
+| **All LLM calls sit behind one interface with a deterministic mock** | The entire 115-test suite runs offline, free, and reproducibly — including in CI, with no API key and no GPU. |
 | **Both evaluations run in CI, and crisis recall is a release gate** | `eval_safety.py` exits non-zero on any missed crisis case, so a regression fails the build rather than showing up on a dashboard. |
 
 ---
@@ -106,7 +106,7 @@ python scripts/advise.py --demo --profile examples/sample_profile.json --text "�
 python scripts/eval_retrieval.py --set both      # retrieval
 python scripts/eval_index_ablation.py            # index-text ablation
 python scripts/eval_safety.py                    # crisis detection
-pytest -q                                        # 100 tests
+pytest -q                                        # 115 tests, incl. Streamlit UI
 ```
 
 For real generation, copy `.env.example` to `.env` and set a provider (OpenRouter or Gemini).
@@ -129,6 +129,7 @@ A partner's mental-health information is the most sensitive category of personal
 ## Repository layout
 
 ```
+streamlit_app/         3-page web UI; the deployed demo runs with fabricated data only
 core/
   config.py            all model names, thresholds, paths — no hardcoding
   knowledge/           card schema, BM25 / dense / RRF retrieval, evaluator
@@ -149,8 +150,10 @@ All 30 cards are distilled from public clinical-education material, primarily [B
 
 ## Status & roadmap
 
-Working today: knowledge base, retrieval + evaluation, crisis detection, reply generation, ingestion pipeline, CLI, CI.
-Next: a rubric-based generation-quality evaluation, a Streamlit UI, and a Discord bot.
+Working today: knowledge base, retrieval + evaluation, crisis detection, reply generation, ingestion pipeline, CLI, CI, and a 3-page Streamlit UI.
+Next: a rubric-based generation-quality evaluation, then a Discord bot.
+
+See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for how to run it, and for why the public demo deliberately ships without an API key.
 
 ## Licence
 
