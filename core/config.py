@@ -66,7 +66,11 @@ class Config:
 
     # ---------- 检索 ----------
     # backend: bm25 | dense | hybrid
-    retrieval_backend: str = field(default_factory=lambda: _env("HB_RETRIEVAL_BACKEND", "hybrid"))
+    # 默认是 dense，不是 hybrid —— 这是被留出集数据推翻默认直觉的结果：
+    #   留出集 Recall@3    bm25 36.7% | dense 76.7% | hybrid 70.0%
+    # RRF 对两个检索器等权重融合，当其中一个明显更弱时，它会把结果拖下来。
+    # 「混合检索总是更好」是个流行说法，在这个语料上不成立。
+    retrieval_backend: str = field(default_factory=lambda: _env("HB_RETRIEVAL_BACKEND", "dense"))
     embedding_model: str = field(
         default_factory=lambda: _env("HB_EMBEDDING_MODEL", "BAAI/bge-small-zh-v1.5")
     )
