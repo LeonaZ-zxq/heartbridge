@@ -281,12 +281,14 @@ def complete_json(
     user: str,
     *,
     temperature: float = 0.2,
-    retries: int = 2,
+    retries: int = 3,
 ) -> Any:
     """要求结构化输出的调用：带重试 + JSON 修复。
 
-    重试用指数退避（1s, 2s），因为免费模型最常见的失败是限速（429），
-    立刻重试只会再撞一次。
+    重试用指数退避（4s, 8s, 16s），因为免费模型最常见的失败是限速（429）。
+    退避从 1s 改成 4s 起步，是因为免费档的配额单位是**每分钟**
+    （Gemini 免费档 10 RPM）：撞上限速后 1 秒回来必然再撞一次，
+    等于把三次重试机会一口气浪费掉。退避必须和配额的时间尺度同量级。
     """
     last: Exception | None = None
     for attempt in range(retries + 1):
@@ -296,5 +298,5 @@ def complete_json(
         except LLMError as exc:
             last = exc
             if attempt < retries:
-                time.sleep(2**attempt)
+                time.sleep(min(30, 4 * 2**attempt))
     raise LLMError(f"complete_json 在 {retries + 1} 次尝试后失败: {last}")

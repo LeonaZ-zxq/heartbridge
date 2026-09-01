@@ -111,12 +111,17 @@ class DistillReport:
     # 疑似重复：不静默丢弃，写进单独文件交给人工复核
     needs_review: list[tuple[Card, str, float]] = field(default_factory=list)
     repairs: int = 0              # 触发了几次 self-repair
+    # 重试用尽、整块丢失的调用。**必须记账**：这一块本来可能有两三张卡，
+    # 静默返回空列表的话，产出少了却没有任何地方显示少了什么。
+    llm_errors: list[str] = field(default_factory=list)
 
     def summary(self) -> str:
+        lost = f" | ⚠ 调用失败丢块 {len(self.llm_errors)}" if self.llm_errors else ""
         return (
             f"分块 {self.chunks} | 模型产出 {self.raw_items} 条 | "
             f"通过校验 {len(self.cards)} | 自修复 {self.repairs} 次 | "
             f"丢弃 {len(self.rejected)} | 待人工复核(疑似重复) {len(self.needs_review)}"
+            f"{lost}"
         )
 
 
@@ -186,7 +191,10 @@ def _distill_chunk(llm: LLMProvider, chunk: str, report: DistillReport, max_repa
     """单块蒸馏，带一次 self-repair 机会。"""
     try:
         data = complete_json(llm, SYSTEM_PROMPT, chunk, temperature=0.2)
-    except LLMError:
+    except LLMError as exc:
+        # 降级仍然是返回空列表（一块失败不该让整份稿子作废），
+        # 但**失败要留痕**。降级和静默是两回事。
+        report.llm_errors.append(str(exc)[:160])
         return []
     if isinstance(data, list):
         return data
@@ -203,8 +211,8 @@ def _distill_chunk(llm: LLMProvider, chunk: str, report: DistillReport, max_repa
             )
             if isinstance(fixed, list):
                 return fixed
-        except LLMError:
-            pass
+        except LLMError as exc:
+            report.llm_errors.append(str(exc)[:160])
     return []
 
 

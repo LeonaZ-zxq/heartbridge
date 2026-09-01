@@ -112,7 +112,7 @@ def run_batch(args) -> int:
     llm = get_llm(CONFIG)
     _preflight(llm)
     pool = list(existing)          # 累积：包含本批已经产出的新卡
-    total_new = total_review = total_rejected = 0
+    total_new = total_review = total_rejected = total_lost = 0
 
     print(f"批量处理 {len(files)} 个文件，新卡 id 从 comm_{next_index:03d} 开始\n")
     for i, f in enumerate(files, 1):
@@ -146,9 +146,16 @@ def run_batch(args) -> int:
         total_new += len(new_cards)
         total_review += len(result.report.needs_review)
         total_rejected += len(result.report.rejected)
+        total_lost += len(result.report.llm_errors)
+        for err in result.report.llm_errors[:2]:
+            print(f"    ⚠ 整块丢失（重试用尽）：{err}")
         print()
 
     print(f"━━ 完成：新卡 {total_new} 张，待复核 {total_review} 张，校验未通过 {total_rejected} 张")
+    if total_lost:
+        print(f"⚠ 有 {total_lost} 个分块因调用失败被丢弃，这批卡是**不完整的**。\n"
+              "  免费额度限速（429）最常见。等几分钟按同样命令重跑即可——"
+              "文字稿已经在本地，重跑不需要再转写一次。")
     if total_new + total_review + total_rejected == 0:
         print("\n⚠ 整批一条都没产出。转写成功但蒸馏为空，通常不是素材的问题：\n"
               "  - 模型持续返回非数组 / 空数组 → 看看 prompt 和转写质量\n"

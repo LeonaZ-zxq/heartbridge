@@ -130,7 +130,16 @@ def test_non_list_output_triggers_self_repair():
     assert len(report.cards) == 1
 
 
-def test_llm_failure_yields_empty_report_not_crash():
+def test_llm_failure_yields_empty_report_not_crash(monkeypatch):
+    """通道全挂 → 空报告，但**失败必须留痕**。
+
+    降级（返回空列表，不让一块失败作废整份稿子）和静默（产出少了却
+    没有任何地方说明少了什么）是两回事。26 个视频转写两小时、
+    distilled/ 空空如也还以成功退出，就是把这两件事混为一谈的代价。
+    """
+    import core.utils.llm as llm_mod
+    monkeypatch.setattr(llm_mod.time, "sleep", lambda *_: None)  # 别真的退避
+
     class Failing:
         name = "failing"
 
@@ -140,6 +149,8 @@ def test_llm_failure_yields_empty_report_not_crash():
 
     report = distill("稿子", Failing(), SOURCE)
     assert report.cards == []
+    assert report.llm_errors, "调用失败必须记账，不能只是返回空列表"
+    assert "⚠" in report.summary(), "摘要里要能一眼看出丢了块"
 
 
 # --------------------------------------------------------------------------- #
