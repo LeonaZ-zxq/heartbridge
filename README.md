@@ -32,7 +32,7 @@ It is also deliberately built as an engineering artefact. Every design decision 
 | **Every reply option must cite a retrieved card, and the citation is validated** | A citation to a card that was not retrieved is a hallucination, and is dropped before the user sees it. |
 | **Two evaluation sets, and the honest one is the lower one** | The dev set scores 100%. It's contaminated. The held-out set scores 36.7%. Both are reported. |
 | **In the ingestion pipeline, provenance is stamped by code, not generated** | `source` and `id` are overwritten from download metadata after the model returns. A model cannot invent where a piece of advice came from, because it is never asked to. |
-| **All LLM calls sit behind one interface with a deterministic mock** | The entire 115-test suite runs offline, free, and reproducibly — including in CI, with no API key and no GPU. |
+| **All LLM calls sit behind one interface with a deterministic mock** | The entire 131-test suite runs offline, free, and reproducibly — including in CI, with no API key and no GPU. |
 | **Both evaluations run in CI, and crisis recall is a release gate** | `eval_safety.py` exits non-zero on any missed crisis case, so a regression fails the build rather than showing up on a dashboard. |
 
 ---
@@ -53,6 +53,17 @@ Two findings that changed the code:
 - **Hybrid retrieval lost to dense alone on the held-out set** (70.0% vs 76.7%). RRF weights both retrievers equally; when one is substantially weaker, fusion drags the result down. "Hybrid is always better" did not survive contact with the measurement, so the default backend is `dense`.
 
 Full methodology in [`docs/EVALUATION.md`](docs/EVALUATION.md).
+
+**Generation quality** — a blind A/B, not a self-assessment
+
+Reply options are generated twice per situation: once through the normal RAG
+path, once with the knowledge base withheld. Both sets are shuffled together
+with their source hidden, and rated by hand against one question — *would I
+actually send this?* The result is a comparison against a control, not an
+unanchored score. An LLM-as-judge runs the same rubric as a cheap regression
+sentinel, and is explicitly **not** the acceptance criterion: self-preference
+and position bias are known, and its correlation with human judgement in this
+domain is unverified. See [`docs/EVALUATION.md`](docs/EVALUATION.md) §3.
 
 **Crisis detection** (41 cases: 14 crisis / 8 elevated / 19 normal, 10 of them adversarial)
 
@@ -106,7 +117,8 @@ python scripts/advise.py --demo --profile examples/sample_profile.json --text "�
 python scripts/eval_retrieval.py --set both      # retrieval
 python scripts/eval_index_ablation.py            # index-text ablation
 python scripts/eval_safety.py                    # crisis detection
-pytest -q                                        # 115 tests, incl. Streamlit UI
+python scripts/eval_generation.py generate       # generation A/B (needs an API key)
+pytest -q                                        # 131 tests, incl. Streamlit UI
 ```
 
 For real generation, copy `.env.example` to `.env` and set a provider (OpenRouter or Gemini).
@@ -150,8 +162,8 @@ All 30 cards are distilled from public clinical-education material, primarily [B
 
 ## Status & roadmap
 
-Working today: knowledge base, retrieval + evaluation, crisis detection, reply generation, ingestion pipeline, CLI, CI, and a 3-page Streamlit UI.
-Next: a rubric-based generation-quality evaluation, then a Discord bot.
+Working today: knowledge base, retrieval + evaluation, crisis detection, reply generation, generation-quality evaluation, ingestion pipeline, CLI, CI, and a 3-page Streamlit UI.
+Next: human blind-rating results on the generation A/B, then a Discord bot.
 
 See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for how to run it, and for why the public demo deliberately ships without an API key.
 

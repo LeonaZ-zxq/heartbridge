@@ -137,11 +137,45 @@ Crisis cases are parameterised individually rather than aggregated: in a safety 
 
 ## 3. Reply generation
 
-Generation quality is not yet measured with a rubric — the current guarantees are structural, and are enforced in tests:
+### 3.1 Structural guarantees (enforced in tests)
 
 - Every option cites a `card_id` that was actually retrieved; ungrounded citations are dropped.
 - Every option carries a `why`; options without one are rejected.
 - At most three options are returned.
 - An LLM failure returns an empty list rather than raising.
 
-Planned: a blind-rating protocol over 20 held-out situations, scoring "would I actually send this?" — the only acceptance criterion that matters for this product.
+### 3.2 The blind A/B protocol
+
+Structural guarantees say the output is well-formed. They say nothing about whether it is any good. For that:
+
+20 situations, written independently of both retrieval evaluation sets (asserted by a test). For each, replies are generated twice:
+
+| Arm | Setup |
+|---|---|
+| `grounded` | normal RAG path — retrieved cards injected |
+| `ungrounded` | identical model, identical prompt, **no cards at all** |
+
+Both arms are shuffled together into one rating sheet with the arm and the card id stripped out, and rated by hand.
+
+**Primary metric:** *would I actually send this?* — Y/N per option, then the share of situations with at least one usable option. Five diagnostic dimensions (validation, sendability, fidelity, harmlessness, explanation quality) are scored 1–5 to locate *where* a bad option went wrong.
+
+The control arm is the point. "My system scores 4.1 out of 5" is unanchored. "The knowledge base moved the usable-reply rate from X to Y" is a claim about whether the retrieval layer earns its place.
+
+Two details that make the blinding real, both covered by tests:
+
+- The sheet contains neither the arm nor the card id. One rubric dimension was renamed from `groundedness` to `fidelity` purely because the substring `grounded` leaked the arm label into the sheet — the test caught it.
+- Shuffling is seeded, so a rating session is reproducible, but ordering does not correlate with arm.
+
+### 3.3 Why LLM-as-judge is a sentinel, not the verdict
+
+A judge model runs the same rubric, because it is cheap enough to re-run after every prompt change. It is deliberately not the acceptance criterion:
+
+1. **Self-preference bias** — models score outputs from their own family higher.
+2. **Position bias** — identical content scores higher earlier in a list.
+3. **Unverified correlation with human judgement in this domain.** "Is this the right thing to send to this person right now" depends on the relationship and the moment. There is no evidence a judge model proxies that, and this is not a domain in which to assume it.
+
+The judge answers "did this change make things obviously worse". The human blind rating answers "is this good".
+
+### 3.4 Crisis situations are excluded, on purpose
+
+Situations that trigger the crisis branch never reach generation, so scoring them as generation quality would be meaningless. The evaluation script detects and skips them, and reports that it did. One deliberate boundary case (`g20`, giving a pet away — plausibly farewell language, plausibly not) is included so this branch is actually exercised.

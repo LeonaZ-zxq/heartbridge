@@ -18,6 +18,9 @@ venv/
 htmlcov/
 .coverage
 
+# 评测产出是模型输出，不是代码；data/ 已整体忽略，这里只是说明
+# data/generation_eval/
+
 # --- personal: interview prep, stays on this machine ---
 docs/INTERVIEW.md
 
