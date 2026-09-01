@@ -10,9 +10,11 @@ You paste the conversation you're stuck in. HeartBridge classifies the risk leve
 
 ## Why this exists
 
-I am the partner of someone with depression. At 2am, in a different timezone, "what do I say?" is a real and recurring problem — and the advice that exists online is scattered, unsourced, and generic. This is the tool I wanted.
+Partners and family members are the people most often in the room when someone with depression is struggling, and they are almost never given anything usable. "What do I actually say right now" is a real, recurring, high-stakes question, and the advice available online is scattered, unsourced and generic. Clinical guidance exists — Beyond Blue and Healthdirect publish good material — but it is written to be read calmly in advance, not consulted at 2am mid-conversation.
 
-It is also deliberately built as an engineering artefact: every design decision below was made against a measurement, not a preference.
+HeartBridge is built for that moment: retrieval over structured, sourced guidance, returned as concrete options with the reasoning attached.
+
+It is also deliberately built as an engineering artefact. Every design decision below was made against a measurement rather than a preference, and where a measurement contradicted the popular choice, the measurement won.
 
 ---
 
@@ -110,7 +112,7 @@ For dense/hybrid retrieval, additionally `pip install sentence-transformers`.
 
 A partner's mental-health information is the most sensitive category of personal data there is. The design reflects that:
 
-- **Local-first.** Profile and transcripts live in SQLite on one machine. `data/` is gitignored in full.
+- **Local-first.** Profile and transcripts live in SQLite on the user's own machine. `data/` is gitignored in full.
 - **Data minimisation.** Every profile field is optional; empty fields are not even injected into prompts.
 - **Local embeddings.** `bge-small-zh` runs on CPU, so retrieval never sends the user's text to a third party. The privacy requirement drove the model choice, not the other way round.
 - **Erasure.** `delete_profile()` exists and is covered by a test.

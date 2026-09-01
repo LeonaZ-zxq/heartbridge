@@ -18,6 +18,9 @@ venv/
 htmlcov/
 .coverage
 
+# --- personal: interview prep, stays on this machine ---
+docs/INTERVIEW.md
+
 # --- os / editor ---
 .DS_Store
 .idea/
