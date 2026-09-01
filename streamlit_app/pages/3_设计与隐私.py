@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 import streamlit as st
-from shared import backend_name, crisis_sidebar, footer, get_cards, is_demo, page_setup
+from shared import api_key_sidebar, backend_name, crisis_sidebar, footer, get_cards, is_demo, page_setup
 
 page_setup("设计与隐私", "🔒")
+api_key_sidebar()
 crisis_sidebar()
 
 st.title("🔒 这个系统是怎么设计的")

@@ -6,9 +6,10 @@
 from __future__ import annotations
 
 import streamlit as st
-from shared import crisis_sidebar, footer, get_cards, page_setup
+from shared import api_key_sidebar, crisis_sidebar, footer, get_cards, page_setup
 
 page_setup("卡片库", "📚")
+api_key_sidebar()
 crisis_sidebar()
 
 st.title("📚 沟通技巧卡片库")

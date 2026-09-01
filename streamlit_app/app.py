@@ -8,14 +8,15 @@ from __future__ import annotations
 
 import streamlit as st
 from shared import (
-    backend_name, crisis_sidebar, demo_banner, demo_profile, footer,
-    get_llm_for_ui, get_retriever, is_demo, page_setup,
+    api_key_sidebar, backend_name, crisis_sidebar, demo_banner, demo_profile,
+    footer, get_llm_for_ui, get_retriever, is_demo, page_setup,
 )
 
 from core.engine.pipeline import advise
 from core.safety.detector import RiskLevel
 
 page_setup("情境求助")
+api_key_sidebar()
 crisis_sidebar()
 
 st.title("🌉 HeartBridge")
