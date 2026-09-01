@@ -101,6 +101,13 @@ class GeminiProvider:
             f"https://generativelanguage.googleapis.com/v1beta/models/"
             f"{self.model}:generateContent"
         )
+        gen: dict = {"temperature": temperature, "maxOutputTokens": 8192}
+        if "2.5" in self.model or "3." in self.model:
+            # 2.5 之后的 flash 默认开思考。不关掉的话，思考会先吃掉输出预算，
+            # 于是 candidate 里根本没有 text 部分——表现出来是一句
+            # "返回结构异常"，看不出真实原因。蒸馏是结构化抽取，
+            # 不需要思考预算。
+            gen["thinkingConfig"] = {"thinkingBudget": 0}
         try:
             resp = httpx.post(
                 url,
@@ -108,7 +115,7 @@ class GeminiProvider:
                 json={
                     "system_instruction": {"parts": [{"text": system}]},
                     "contents": [{"parts": [{"text": user}]}],
-                    "generationConfig": {"temperature": temperature},
+                    "generationConfig": gen,
                 },
                 timeout=self.timeout_s,
             )
@@ -120,7 +127,20 @@ class GeminiProvider:
         try:
             return resp.json()["candidates"][0]["content"]["parts"][0]["text"]
         except (KeyError, IndexError, ValueError) as exc:
-            raise LLMError(f"Gemini 返回结构异常: {resp.text[:300]}") from exc
+            # 200 但取不到文本，最常见的原因是 finishReason 而不是格式问题
+            # （MAX_TOKENS：预算被思考吃完；SAFETY：被安全过滤拦下——
+            # 本项目的素材天然涉及自伤话题，这条会真的发生）。
+            # 把 finishReason 提到最前面，否则排查要靠猜。
+            reason = ""
+            try:
+                cand = resp.json().get("candidates") or [{}]
+                reason = cand[0].get("finishReason") or ""
+            except Exception:  # noqa: BLE001
+                pass
+            hint = f"（finishReason={reason}）" if reason else ""
+            raise LLMError(
+                f"Gemini 没有返回文本{hint}: {resp.text[:300]}"
+            ) from exc
 
 
 class MockProvider:
