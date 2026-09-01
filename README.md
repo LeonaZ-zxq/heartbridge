@@ -1,5 +1,9 @@
 # HeartBridge
 
+[![tests](https://github.com/LeonaZ-zxq/heartbridge/actions/workflows/tests.yml/badge.svg)](https://github.com/LeonaZ-zxq/heartbridge/actions/workflows/tests.yml)
+[![python](https://img.shields.io/badge/python-3.10%20%7C%203.12-blue)](https://www.python.org/)
+[![licence](https://img.shields.io/badge/licence-MIT-green)](LICENSE)
+
 **A retrieval-grounded assistant that helps the partner of someone with depression decide what to say — and understand why it works.**
 
 You paste the conversation you're stuck in. HeartBridge classifies the risk level, retrieves relevant grounded guidance, and returns 2–3 reply options — each one carrying the mechanism behind it, not just a script to copy.
@@ -27,7 +31,8 @@ It is also deliberately built as an engineering artefact. Every design decision 
 | **Crisis responses are hardcoded templates, not generated** | On the highest-risk path, predictability and auditability beat personalisation. A template can be reviewed word-by-word by a human and asserted line-by-line in tests. |
 | **Every reply option must cite a retrieved card, and the citation is validated** | A citation to a card that was not retrieved is a hallucination, and is dropped before the user sees it. |
 | **Two evaluation sets, and the honest one is the lower one** | The dev set scores 100%. It's contaminated. The held-out set scores 36.7%. Both are reported. |
-| **All LLM calls sit behind one interface with a deterministic mock** | The entire 83-test suite runs offline, free, and reproducibly. |
+| **All LLM calls sit behind one interface with a deterministic mock** | The entire 83-test suite runs offline, free, and reproducibly — including in CI, with no API key and no GPU. |
+| **Both evaluations run in CI, and crisis recall is a release gate** | `eval_safety.py` exits non-zero on any missed crisis case, so a regression fails the build rather than showing up on a dashboard. |
 
 ---
 
