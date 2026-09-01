@@ -51,6 +51,19 @@ def test_long_transcript_chunks_with_overlap():
     assert chunks[0][-60:] in chunks[1]
 
 
+def test_unpunctuated_transcript_still_chunks():
+    """Whisper 不加标点时，分块器不能退化成不切。
+
+    实测到的失败：三千多字的中文转写稿一个标点都没有，`re.split` 把它
+    判成一个句子，分块器安静地返回单块。它不报错——这才是问题所在。
+    """
+    text = "如果你的恋爱对象是一位抑郁症患者那么接下来的话你有必要好好听" * 120
+    chunks = chunk_transcript(text)
+    assert len(chunks) > 1, "没有句号也必须切得开"
+    assert all(len(c) <= 2400 for c in chunks)
+    assert "".join(c[240:] if i else c for i, c in enumerate(chunks)).startswith(text[:200])
+
+
 # --------------------------------------------------------------------------- #
 # 来源与 id 由代码掌控（最重要的一组）
 # --------------------------------------------------------------------------- #

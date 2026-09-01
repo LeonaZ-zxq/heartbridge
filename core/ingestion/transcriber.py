@@ -39,6 +39,20 @@ def transcribe(
         ) from exc
 
     model = WhisperModel(model_size, compute_type=compute_type)
-    segments, info = model.transcribe(str(audio_path), language=language)
+    segments, info = model.transcribe(
+        str(audio_path),
+        language=language,
+        # Whisper 的中文默认输出**不带标点、且常常给繁体**。这不只是不好看：
+        # 下游分块器按 。！？ 找句子边界，没有标点就整篇是一个"句子"，
+        # 分块直接退化成不切。initial_prompt 是唯一能同时把这两件事扳回来的
+        # 旋钮——它给解码器一个风格样例，让它照着这个样子往下写。
+        initial_prompt=(
+            "以下是普通话的口语内容，请使用简体中文转写，并加上标点符号。"
+            if language == "zh" else None
+        ),
+        # 短视频几乎都有背景音乐。VAD 先把非语音段切掉，
+        # 能明显减少模型对着音乐硬编词句的情况。
+        vad_filter=True,
+    )
     text = "".join(seg.text for seg in segments).strip()
     return Transcript(text=text, language=info.language, duration_s=info.duration)

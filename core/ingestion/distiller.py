@@ -76,17 +76,35 @@ REPAIR_PROMPT = """你上一次的输出没有通过数据校验。错误如下�
 # --------------------------------------------------------------------------- #
 # 分块
 # --------------------------------------------------------------------------- #
+def _hard_split(sent: str, size: int) -> list[str]:
+    """把一个超长的"句子"硬切开。
+
+    存在的理由是一个实测到的失败：Whisper 不加标点时，整份三千多字的
+    稿子会被 `re.split` 判成**一个句子**，于是分块器退化成不切——
+    它不报错，只是安静地什么也没做。空转的分块器比没有分块器更危险，
+    因为调用方以为长稿已经被处理过了。
+    在句子边界切是优化；能切开是底线。底线不能依赖输入有标点。
+    """
+    return [sent[i:i + size] for i in range(0, len(sent), size)]
+
+
 def chunk_transcript(text: str, max_chars: int = 2400, overlap: int = 240) -> list[str]:
     """按句子边界切块，块间重叠。
 
     在句子边界切而不是硬切字符数：一个技巧被从句子中间切断，
     两个块都拿不到完整信息。重叠是为了让跨块的技巧至少在一个块里完整出现。
+    句子边界找不到时退回硬切——见 `_hard_split`。
     """
     text = text.strip()
     if len(text) <= max_chars:
         return [text] if text else []
 
-    sentences = re.split(r"(?<=[。！？!?\n])", text)
+    sentences: list[str] = []
+    for raw in re.split(r"(?<=[。！？!?\n])", text):
+        if len(raw) > max_chars:
+            sentences.extend(_hard_split(raw, max_chars - overlap))
+        else:
+            sentences.append(raw)
     chunks: list[str] = []
     buf = ""
     for sent in sentences:
