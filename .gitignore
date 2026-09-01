@@ -4,8 +4,18 @@
 .streamlit/secrets.toml
 
 # --- private data: partner's mental-health info never leaves this machine ---
-data/
-!data/.gitkeep
+# 注意 data/* 而不是 data/：git 无法「重新包含」一个被排除目录下的文件，
+# 所以必须先排除目录内容，再逐个放行想留在仓库里的说明文件。
+data/*
+!data/raw_media/
+data/raw_media/*
+!data/raw_media/README.md
+!data/transcripts/
+data/transcripts/*
+!data/transcripts/README.md
+!data/distilled/
+data/distilled/*
+!data/distilled/README.md
 
 # --- python ---
 __pycache__/
