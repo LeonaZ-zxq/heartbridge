@@ -31,7 +31,8 @@ It is also deliberately built as an engineering artefact. Every design decision 
 | **Crisis responses are hardcoded templates, not generated** | On the highest-risk path, predictability and auditability beat personalisation. A template can be reviewed word-by-word by a human and asserted line-by-line in tests. |
 | **Every reply option must cite a retrieved card, and the citation is validated** | A citation to a card that was not retrieved is a hallucination, and is dropped before the user sees it. |
 | **Two evaluation sets, and the honest one is the lower one** | The dev set scores 100%. It's contaminated. The held-out set scores 36.7%. Both are reported. |
-| **All LLM calls sit behind one interface with a deterministic mock** | The entire 83-test suite runs offline, free, and reproducibly — including in CI, with no API key and no GPU. |
+| **In the ingestion pipeline, provenance is stamped by code, not generated** | `source` and `id` are overwritten from download metadata after the model returns. A model cannot invent where a piece of advice came from, because it is never asked to. |
+| **All LLM calls sit behind one interface with a deterministic mock** | The entire 100-test suite runs offline, free, and reproducibly — including in CI, with no API key and no GPU. |
 | **Both evaluations run in CI, and crisis recall is a release gate** | `eval_safety.py` exits non-zero on any missed crisis case, so a regression fails the build rather than showing up on a dashboard. |
 
 ---
@@ -105,7 +106,7 @@ python scripts/advise.py --demo --profile examples/sample_profile.json --text "�
 python scripts/eval_retrieval.py --set both      # retrieval
 python scripts/eval_index_ablation.py            # index-text ablation
 python scripts/eval_safety.py                    # crisis detection
-pytest -q                                        # 83 tests
+pytest -q                                        # 100 tests
 ```
 
 For real generation, copy `.env.example` to `.env` and set a provider (OpenRouter or Gemini).
@@ -134,6 +135,7 @@ core/
   safety/              two-stage crisis detector, crisis templates
   engine/              prompt assembly, generation, citation validation, pipeline
   profile/             partner profile model + local SQLite store
+  ingestion/           yt-dlp download, local Whisper ASR, LLM distillation
   utils/               LLM abstraction (OpenRouter / Gemini / Mock), transcript parser
 knowledge_base/cards/  30 curated cards, every one with a source
 tests/                 83 tests; fixtures hold both evaluation sets
@@ -147,8 +149,8 @@ All 30 cards are distilled from public clinical-education material, primarily [B
 
 ## Status & roadmap
 
-Working today: knowledge base, retrieval + evaluation, crisis detection, reply generation, CLI.
-Next: dense-retrieval numbers on the held-out set, a video→ASR→distillation ingestion pipeline for Chinese-language creator content, a Streamlit UI, and a Discord bot.
+Working today: knowledge base, retrieval + evaluation, crisis detection, reply generation, ingestion pipeline, CLI, CI.
+Next: a rubric-based generation-quality evaluation, a Streamlit UI, and a Discord bot.
 
 ## Licence
 
