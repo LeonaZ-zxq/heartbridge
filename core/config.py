@@ -62,7 +62,11 @@ class Config:
     )
     gemini_key: str = field(default_factory=lambda: _env("GEMINI_API_KEY", ""))
     gemini_model: str = field(default_factory=lambda: _env("HB_GEMINI_MODEL", "gemini-3.6-flash"))
-    llm_timeout_s: int = field(default_factory=lambda: _env_int("HB_LLM_TIMEOUT", 60))
+    # 60s 是按"聊天式一问一答"定的，对蒸馏请求不够：近千字中文进去、
+    # 一个 JSON 卡片数组出来，flash 开着思考时常态就在 60s 上下摆动。
+    # 症状极具误导性——预检的 {"ok":true} 又小又快，永远能过，
+    # 于是"通道是通的"和"真请求会超时"同时成立，看起来像素材的问题。
+    llm_timeout_s: int = field(default_factory=lambda: _env_int("HB_LLM_TIMEOUT", 180))
 
     # ---------- 检索 ----------
     # backend: bm25 | dense | hybrid

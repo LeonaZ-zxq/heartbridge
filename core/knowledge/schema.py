@@ -134,7 +134,16 @@ class SomaticCard(BaseCard):
     def index_text(self) -> str:
         # aliases 是用户的口语说法（"喘不上气" vs 学名"过度换气"），
         # 对躯体化卡来说这是命中率的主要来源。
-        return " ".join([self.symptom, *self.aliases, *self.tags])
+        #
+        # 但只有 alias 还不够，而且失败的方式很隐蔽：alias 是**孤立的名词短语**，
+        # 真实查询却是带主语的句子——"他说心口像被石头压着，喘气费劲"。
+        # 沟通卡的索引恰好也是这种句子（场景描述），于是躯体化查询会被沟通卡截走：
+        # 词是对的（alias 里就有"喘不上气"），落点却不对。
+        # 这不是词汇不匹配（vocabulary mismatch），是**语域不匹配**——
+        # 同样的词，装在不同的句式里，向量落在空间的不同区域。
+        # 把 alias 套回查询的句式，对齐的是语言分布，不是词表。
+        spoken = [f"他说{a}" for a in self.aliases]
+        return " ".join([self.symptom, *self.aliases, *spoken, *self.tags])
 
 
 Card = Union[CommunicationCard, SomaticCard]

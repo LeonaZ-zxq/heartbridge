@@ -221,6 +221,18 @@ def main() -> int:
 
     print(f"来源: {result.source.platform} | {result.source.author or '?'} | {result.source.title or '?'}")
     print(result.report.summary())
+    # 单文件模式以前只打印 summary 里那个「⚠ 调用失败丢块 N」的计数，
+    # 不打印异常本身。于是「先拿一个文件试」这个动作只能告诉你「失败了」，
+    # 不能告诉你「为什么失败」——而这两者之间就隔着一次重跑。
+    # 批量模式一直是打印的（run_batch 里那段），单文件漏了，补齐。
+    for err in result.report.llm_errors:
+        print(f"    ⚠ 整块丢失（重试用尽）：{err}")
+    if result.report.llm_errors and not result.report.cards:
+        print("\n  预检通过但蒸馏调用失败 = 通道是通的，是这一次请求本身的问题。\n"
+              "  预检发的是 {\"ok\":true} 这种小请求，快到撞不上超时，"
+              "所以它过了不代表真请求会过。\n"
+              "  超时 → 调高 HB_LLM_TIMEOUT；finishReason=MAX_TOKENS → 输出预算被思考吃掉；\n"
+              "  finishReason=SAFETY → 素材涉及自伤话题被过滤；429 → 限速，等几分钟重跑。")
     if result.transcript_path:
         print(f"文字稿:   {result.transcript_path}")
     if result.cards_path:

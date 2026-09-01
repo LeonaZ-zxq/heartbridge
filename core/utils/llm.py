@@ -23,7 +23,17 @@ from core.config import CONFIG, Config
 
 
 class LLMError(RuntimeError):
-    """LLM 调用失败（网络、鉴权、限速、返回无法解析）。"""
+    """LLM 调用失败（网络、鉴权、限速、返回无法解析）。
+
+    `retryable=False` 表示**再试也是同样的结果**：每日配额打光、key 失效、
+    模型下线。区分这个不是洁癖——重试策略默认所有错误都是暂时的，
+    于是「今天没额度了」会被退避重试 4 次，每次都真的发出去、真的被计数。
+    本来只是没额度，重试把它变成了加速烧额度。
+    """
+
+    def __init__(self, *args, retryable: bool = True):
+        super().__init__(*args)
+        self.retryable = retryable
 
 
 # --------------------------------------------------------------------------- #
@@ -123,6 +133,14 @@ class GeminiProvider:
                     },
                     timeout=self.timeout_s,
                 )
+            except httpx.TimeoutException as exc:
+                # 超时和"请求被拒"是两种完全不同的病，混在一个 except 里
+                # 会显示成一句没有主语的 "The read operation timed out"——
+                # 看不出是谁超时、超的是多少、该往哪调。
+                raise LLMError(
+                    f"Gemini 请求超时（{self.timeout_s}s 未返回）。"
+                    f"蒸馏这类长请求比聊天慢，可用 HB_LLM_TIMEOUT 调高。原始异常: {exc}"
+                ) from exc
             except Exception as exc:  # noqa: BLE001
                 raise LLMError(f"Gemini 请求失败: {exc}") from exc
 
@@ -133,7 +151,17 @@ class GeminiProvider:
             # 只对"参数不被接受"降级。404/401/429 降级也没用，直接抛。
             last_attempt = i == len(attempts) - 1
             if last_attempt or resp.status_code != 400:
-                raise LLMError(f"Gemini HTTP {resp.status_code}: {resp.text[:300]}")
+                detail = _gemini_error_detail(resp)
+                # 每日配额、鉴权失败、模型下线：重试没有任何意义。
+                # 每分钟限速则相反——退避重试正是为它设计的。
+                terminal = (
+                    resp.status_code in (401, 403, 404)
+                    or (resp.status_code == 429 and "PerDay" in detail)
+                )
+                raise LLMError(
+                    f"Gemini HTTP {resp.status_code}: {detail}",
+                    retryable=not terminal,
+                )
         try:
             return resp.json()["candidates"][0]["content"]["parts"][0]["text"]
         except (KeyError, IndexError, ValueError) as exc:
@@ -151,6 +179,34 @@ class GeminiProvider:
             raise LLMError(
                 f"Gemini 没有返回文本{hint}: {resp.text[:300]}"
             ) from exc
+
+
+def _gemini_error_detail(resp) -> str:
+    """把 Google 的错误体压成一行**可据以行动**的说明。
+
+    原来是 resp.text[:300]。对 429 来说这个长度正好切在关键处：
+    配额信息在 details[] 里，排在 message 后面——于是看到的永远是
+    "You exceeded your current quota"，而看不到超的是哪个配额。
+    但「每分钟超了」等一分钟就行，「每天超了」今天就不用再试了，
+    两者的处置完全相反。截断把这个区别一起截掉了。
+    """
+    try:
+        err = resp.json().get("error", {})
+    except Exception:  # noqa: BLE001
+        return resp.text[:300]
+
+    parts = [err.get("message", "")[:200]]
+    for d in err.get("details", []):
+        t = d.get("@type", "")
+        if t.endswith("QuotaFailure"):
+            for v in d.get("violations", []):
+                quota = v.get("quotaId") or v.get("quotaMetric", "")
+                val = v.get("quotaValue", "")
+                parts.append(f"[配额] {quota}"
+                             + (f" 上限={val}" if val else ""))
+        elif t.endswith("RetryInfo") and d.get("retryDelay"):
+            parts.append(f"[建议等待] {d['retryDelay']}")
+    return " ".join(x for x in parts if x)
 
 
 class MockProvider:
@@ -327,6 +383,8 @@ def complete_json(
             return extract_json(raw)
         except LLMError as exc:
             last = exc
+            if not getattr(exc, "retryable", True):
+                raise
             if attempt < retries:
                 time.sleep(min(30, 4 * 2**attempt))
     raise LLMError(f"complete_json 在 {retries + 1} 次尝试后失败: {last}")
