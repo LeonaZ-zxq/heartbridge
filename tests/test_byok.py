@@ -11,6 +11,9 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "streamlit_app"))
 
+# 和 test_streamlit_app.py 对齐：UI 是可选依赖，缺了就跳过这一组，
+# 不能让整个测试套件在收集阶段就崩掉。
+pytest.importorskip("streamlit", reason="UI 是可选依赖")
 from streamlit.testing.v1 import AppTest  # noqa: E402
 
 
