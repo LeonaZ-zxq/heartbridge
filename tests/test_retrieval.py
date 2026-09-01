@@ -10,10 +10,19 @@
 from core.knowledge.evaluator import evaluate
 from core.knowledge.retrieval import BM25Retriever, HybridRetriever, tokenize
 
-# 基线由 scripts/eval_retrieval.py 测得（BM25，32 条查询）：
-# Recall@1=78.1%  Recall@3=87.5%  MRR=0.828
-RECALL_AT_3_FLOOR = 0.80
+# ━━━ 两个评测集，两个完全不同的数字，这本身就是这个项目的一个结论 ━━━
+#
+# dev  (retrieval_eval.json)    BM25 Recall@3 = 100.0%
+# holdout (retrieval_holdout.json) BM25 Recall@3 =  36.7%
+#
+# 差距的原因是**测试集泄漏**：卡片上的 user_phrasings（文档扩展）是在
+# 看过 dev 集失败案例之后写的，等于把答案抄进了索引。dev 集的分数因此
+# 永久性地偏乐观，只能用作回归哨兵，不能对外报。
+# holdout 集是之后独立撰写、全部为改写式查询的，它才是诚实的数字，
+# 也定量地证明了：**纯词法检索在同义改写上会崩，语义检索不是可选项。**
+RECALL_AT_3_FLOOR = 0.80          # dev 集回归下限
 MRR_FLOOR = 0.75
+HOLDOUT_RECALL_FLOOR = 0.33       # holdout 集当前 BM25 水平；接入 dense 后应大幅提高
 
 
 def test_tokenizer_handles_chinese_and_punctuation():
@@ -26,6 +35,22 @@ def test_bm25_meets_recall_floor(cards, eval_queries):
     res = evaluate(BM25Retriever(cards), eval_queries, k=3)
     assert res.recall_at_3 >= RECALL_AT_3_FLOOR, res.summary()
     assert res.mrr >= MRR_FLOOR, res.summary()
+
+
+def test_holdout_set_does_not_regress(cards):
+    """留出集的回归哨兵。
+
+    下限设得低，因为纯 BM25 在这个集上本来就弱——
+    重点不是分数高，而是**不许悄悄变得更差**，以及提醒任何读代码的人：
+    对外要报的是这个数字，不是 dev 集那个 100%。
+    """
+    from pathlib import Path
+
+    from core.knowledge.evaluator import load_eval_set
+
+    holdout = load_eval_set(Path(__file__).parent / "fixtures/retrieval_holdout.json")
+    res = evaluate(BM25Retriever(cards), holdout, k=3)
+    assert res.recall_at_3 >= HOLDOUT_RECALL_FLOOR, res.summary()
 
 
 def test_type_filter_restricts_results(cards):

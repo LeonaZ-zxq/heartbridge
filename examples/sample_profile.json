@@ -1,0 +1,16 @@
+{
+  "_note": "演示用假数据。真实 profile 只存在本机 SQLite（data/heartbridge.db），永不进仓库、永不上云。",
+  "profile_id": "demo",
+  "nickname": "小鱼",
+  "relationship_years": 2.5,
+  "long_distance": true,
+  "diagnosis": "中度抑郁（示例）",
+  "in_treatment": true,
+  "triggers": ["工作汇报前一晚", "跟家里通电话之后", "连续加班"],
+  "core_fears": ["觉得自己拖累了别人", "怕被抛弃"],
+  "landmines": ["不要拿他和他哥比较", "不要提去年那次住院"],
+  "what_helps": ["先安静陪着，不急着分析", "打语音而不是发长文字", "具体的小事夸奖"],
+  "what_backfires": ["讲道理", "说'你想开点'", "一次性说很多"],
+  "my_voice_samples": ["我在呢", "别怕，有我", "先别管别的，我们先吃口饭", "不想说话也没关系，我陪着"],
+  "pet_names": ["小鱼", "鱼鱼"]
+}

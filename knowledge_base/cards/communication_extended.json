@@ -1,23 +1,435 @@
 [
-{"id":"comm_012","type":"communication","scenario":"他只是想说说，你却忍不住想给建议、想解决问题","technique_name":"先问他要什么：听着还是想办法","do":["直接问：'你想要我听着，还是一起想办法？'","如果他要听着，就真的只听，用简短的回应保持在场","建议憋住，等他问了再说"],"dont":["未经询问就进入方案模式","说'那你应该……'开头的句子","在他说完前就开始反驳前提"],"example_phrases":["你想我就听着，还是一起想想办法？","嗯，我在听。","这个我先记着，你想听的时候我再说。"],"why_it_works":"给建议满足的是照顾者缓解自身无力感的需求，未必是对方的需求。显式确认需求能避免'我说了这么多你都不听'的双输。","tags":["倾听","照顾者陷阱","需求确认"],"source":{"authority":"Beyond Blue — How to help someone with anxiety or depression","url":"https://www.beyondblue.org.au/get-support/support-someone/how-to-help-someone-with-anxiety-or-depression","date_ingested":"2026-09-01"}},
-
-{"id":"comm_013","type":"communication","scenario":"他说'别管我了'、'你走吧'、把你往外推","technique_name":"识别推开背后的测试，稳住不走也不硬贴","do":["回应背后的恐惧而不是字面意思","给出明确、有限、可兑现的在场承诺（'我今晚都在'）","同时尊重他要空间的部分：不消失但降低强度"],"dont":["真的按字面意思消失（会被验证为'果然会走'）","说'你怎么这么说'表达受伤，让他额外背内疚","强行贴上去打破他的空间需求"],"example_phrases":["我不走。但我可以安静一会儿。","你不用现在跟我说话，我就在。","我今晚都在，你随时叫我。"],"why_it_works":"推开常是被抛弃恐惧的行为表达（一种自我保护式的先发制人）。稳定的、可预期的在场比激烈的挽留更能反驳'所有人都会走'的核心信念。","tags":["推开","被抛弃恐惧","测试"],"source":{"authority":"Beyond Blue — How to help someone with anxiety or depression","url":"https://www.beyondblue.org.au/get-support/support-someone/how-to-help-someone-with-anxiety-or-depression","date_ingested":"2026-09-01"}},
-
-{"id":"comm_014","type":"communication","scenario":"他自己停药、漏药、或说想把药停了","technique_name":"不当警察，把决定交回医生","do":["先问原因（副作用？觉得好了？经济？忘了？）——原因不同处理完全不同","明确说明停药需要和医生讨论减量，不适合自己停","提供实际支持：一起记录、设提醒、陪着去复诊"],"dont":["监督式盘问'你今天吃了没'变成每日审讯","擅自替他决定或藏药","把吃药和你的爱绑定（'你不吃就是不在乎我'）"],"example_phrases":["你是因为副作用不舒服，还是觉得好一些了？","这个我们别自己决定，跟医生说一声再调好不好。","要不要我帮你记着，或者我们一起问医生。"],"why_it_works":"擅自停药是复发的常见诱因，但把伴侣变成监督者会让服药成为关系冲突点。把医学决定归还给医生、把关系里的角色限定为支持，是可持续的分工。","tags":["用药","依从性","复发风险"],"source":{"authority":"Healthdirect — Depression","url":"https://www.healthdirect.gov.au/depression","date_ingested":"2026-09-01"}},
-
-{"id":"comm_015","type":"communication","scenario":"他说'我永远好不了'、对未来完全绝望","technique_name":"不许诺结果，只许诺陪伴 + 指出可治疗性","do":["承认现在看不到出口这件事本身有多难熬","陈述事实：抑郁是可治疗的（Beyond Blue 的说法是'there is hope that things can get better'）","把时间尺度缩短到今天、这一小时"],"dont":["打包票'你一定会好的'——没有依据的保证会削弱可信度","举别人康复的例子做比较","说'都过去了'否认此刻的真实"],"example_phrases":["现在看不到尽头，这本身就很消耗。","我不敢保证什么时候，但这个病是能治的，这一点是真的。","我们先过今天。"],"why_it_works":"绝望感（hopelessness）是自杀风险的强预测因子，需要被认真对待。空洞保证会被抑郁认知驳回；'可治疗'是可核实的事实陈述，而缩短时间尺度让'撑住'变成一个可行的目标。","tags":["绝望","预后","风险因子"],"source":{"authority":"Beyond Blue — How to help someone with anxiety or depression","url":"https://www.beyondblue.org.au/get-support/support-someone/how-to-help-someone-with-anxiety-or-depression","date_ingested":"2026-09-01"}},
-
-{"id":"comm_016","type":"communication","scenario":"他因为工作、考试、学业上的失败强烈自我攻击","technique_name":"承认损失，拒绝人格结论","do":["先承认这件事确实是个损失，别急着淡化","把归因中的情境因素说出来（但不要替他辩护到失真）","把'这次没做到'和'我这个人不行'明确分开"],"dont":["说'这没什么大不了'——否认了他的真实损失","立刻转向'下次努力'——他此刻不在解决问题的状态","跟着他一起复盘所有失误"],"example_phrases":["这件事是真的可惜，我知道你准备了很久。","这次没成，是这一次的事。","你现在整个人都被这件事定义了，我不这么看你。"],"why_it_works":"抑郁的归因风格倾向于把失败归为内在、稳定、全局的原因。有效回应是承认具体损失（保持可信）同时切断向人格的泛化。","tags":["失败","归因","学业工作"],"source":{"authority":"Beyond Blue — Anxiety management strategies","url":"https://www.beyondblue.org.au/mental-health/anxiety/treatments-for-anxiety/anxiety-management-strategies","date_ingested":"2026-09-01"}},
-
-{"id":"comm_017","type":"communication","scenario":"他状态明显好转，你想表达高兴又怕给他压力","technique_name":"看见变化，但不设为新基线","do":["具体地指出你观察到的小变化","把功劳归给他","明确说明反复是正常的，好一点不等于从此不能坏"],"dont":["说'你终于好了！'——把好转固化成期待，之后的波动会变成'退步'","趁机安排一堆活动","说'我就说会好起来吧'"],"example_phrases":["我注意到你这两天愿意出门了，挺好的。","这是你自己撑出来的。","就算过几天又不好，也没关系，本来就是这样的。"],"why_it_works":"Beyond Blue 建议注意并温和地指出微小的改善。但要防止'好转'被建构成新标准——否则正常的症状波动会被双方体验为失败。","tags":["好转","波动","期待管理"],"source":{"authority":"Beyond Blue — How to help someone with anxiety or depression","url":"https://www.beyondblue.org.au/get-support/support-someone/how-to-help-someone-with-anxiety-or-depression","date_ingested":"2026-09-01"}},
-
-{"id":"comm_018","type":"communication","scenario":"他反复问'我是不是很麻烦'、'你是不是烦我了'（反复寻求保证）","technique_name":"给保证，但同时给一个更稳的结构","do":["先给出清晰简短的保证","然后指出这个不安本身：'你现在需要反复确认，是不是有点慌'","建立可预期的日常（固定时间联系），用结构替代不断确认"],"dont":["敷衍地重复'不麻烦不麻烦'（保证的边际效用会衰减）","表现出不耐烦（会验证他的担心）","反过来责怪'你怎么老问这个'"],"example_phrases":["不烦。这句我可以每天说。","我感觉你现在有点慌，是不是发生什么了？","我们说好每天睡前聊十分钟，不用等你确认我在不在。"],"why_it_works":"反复寻求保证（reassurance seeking）短期缓解焦虑但长期强化它，机制类似强迫的安全行为。既给保证又逐步用稳定结构替代，是不伤关系的降低依赖路径。","tags":["寻求保证","关系焦虑","强化循环"],"source":{"authority":"Beyond Blue — Anxiety signs and symptoms","url":"https://www.beyondblue.org.au/mental-health/anxiety/signs-and-symptoms","date_ingested":"2026-09-01"}},
-
-{"id":"comm_019","type":"communication","scenario":"你自己撑不住了，但又怕说出来会伤到他","technique_name":"说自己的状态，不归因于他","do":["用'我'开头描述状态，不用'你让我'","同时给出你不会离开的明确信号","真的去找自己的支持（朋友、咨询、carer 服务），不要只靠他"],"dont":["硬撑到崩溃后爆发——伤害比早说大得多","把疲惫说成他的错","在他急性发作当下提这件事"],"example_phrases":["我最近有点透支，不是因为你，是我自己需要休息一下。","我今晚想早点睡，明天我们再聊，我不是在躲你。","我也在找人聊聊我自己的状态。"],"why_it_works":"Beyond Blue 明确建议照顾者保护自身健康、必要时寻求个人或伴侣咨询（并提到 Carer Gateway）。照顾者耗竭是关系破裂的主要路径之一；早期、非归因的表达能维持可持续性。","tags":["照顾者","耗竭","自我关怀"],"source":{"authority":"Beyond Blue — How to help someone with anxiety or depression","url":"https://www.beyondblue.org.au/get-support/support-someone/how-to-help-someone-with-anxiety-or-depression","date_ingested":"2026-09-01"}},
-
-{"id":"comm_020","type":"communication","scenario":"他不想出门、不想见人、什么活动都拒绝","technique_name":"共同活动而非独自任务","do":["提议一起做，而不是让他自己做","把选项减少到两个（选择过多会瘫痪决策）","接受最小版本（在楼下站五分钟也算）"],"dont":["列一堆活动让他选","强调'对你有好处'（把活动变成治疗任务）","因为他拒绝就完全停止邀请"],"example_phrases":["我要去楼下买个东西，你要不要一起，不下车也行。","今天两个选择：出去走十分钟，或者在家一起看个片。","去不了也没事，我明天再问。"],"why_it_works":"Beyond Blue 建议一起做活动来打断负面思维循环。共同参与降低了启动成本，减少选项则绕开了抑郁状态下受损的决策功能。","tags":["社交回避","行为激活","共同活动"],"source":{"authority":"Beyond Blue — How to help someone with anxiety or depression","url":"https://www.beyondblue.org.au/get-support/support-someone/how-to-help-someone-with-anxiety-or-depression","date_ingested":"2026-09-01"}},
-
-{"id":"comm_021","type":"communication","scenario":"生日、纪念日、过年过节，他状态特别差或觉得自己毁了气氛","technique_name":"提前降低仪式的期待值","do":["提前几天就说清楚：过不过、怎么过都可以","准备一个最低版本的方案（十分钟的版本）","当天不评价他的状态"],"dont":["用惊喜制造社交压力","说'就今天一天，你忍一下'","事后表达失望"],"example_phrases":["今年怎么过都行，取消也行，我不会失望。","我们准备一个十分钟版本的，不行就停。","你在这儿就够了，气氛不是你的责任。"],"why_it_works":"节日的社会期待会放大'我毁掉了它'的自责，而预期性焦虑本身就会恶化症状。提前解除期待，把仪式从'必须成功的表演'降级为'可选项'。","tags":["节日","期待管理","内疚"],"source":{"authority":"Beyond Blue — Anxiety management strategies","url":"https://www.beyondblue.org.au/mental-health/anxiety/treatments-for-anxiety/anxiety-management-strategies","date_ingested":"2026-09-01"}},
-
-{"id":"comm_022","type":"communication","scenario":"他发作过后跟你道歉，说'对不起我又这样了'","technique_name":"接受道歉，但不确认罪名","do":["接住道歉的情感（他在乎你）","但不确认'你做错了'这个前提","把注意力转向他此刻的状态"],"dont":["说'没关系'然后憋着（之后会以别的方式爆出来）","趁机清算刚才的伤害","说'下次别这样了'——他控制不了"],"example_phrases":["我听到了。但你不用为生病道歉。","如果刚才有什么真的伤到我，我会跟你说，现在没有。","你现在感觉怎么样？"],"why_it_works":"接受道歉但拒绝'症状=过错'的框架，可以避免内疚累积成新的抑郁燃料，同时保留你真实表达受伤的权利（有边界的关系才可持续）。","tags":["道歉","内疚","事后修复"],"source":{"authority":"Beyond Blue — How to help someone with anxiety or depression","url":"https://www.beyondblue.org.au/get-support/support-someone/how-to-help-someone-with-anxiety-or-depression","date_ingested":"2026-09-01"}}
+ {
+  "id": "comm_012",
+  "type": "communication",
+  "scenario": "他只是想说说，你却忍不住想给建议、想解决问题",
+  "technique_name": "先问他要什么：听着还是想办法",
+  "do": [
+   "直接问：'你想要我听着，还是一起想办法？'",
+   "如果他要听着，就真的只听，用简短的回应保持在场",
+   "建议憋住，等他问了再说"
+  ],
+  "dont": [
+   "未经询问就进入方案模式",
+   "说'那你应该……'开头的句子",
+   "在他说完前就开始反驳前提"
+  ],
+  "example_phrases": [
+   "你想我就听着，还是一起想想办法？",
+   "嗯，我在听。",
+   "这个我先记着，你想听的时候我再说。"
+  ],
+  "why_it_works": "给建议满足的是照顾者缓解自身无力感的需求，未必是对方的需求。显式确认需求能避免'我说了这么多你都不听'的双输。",
+  "tags": [
+   "倾听",
+   "照顾者陷阱",
+   "需求确认"
+  ],
+  "source": {
+   "authority": "Beyond Blue — How to help someone with anxiety or depression",
+   "url": "https://www.beyondblue.org.au/get-support/support-someone/how-to-help-someone-with-anxiety-or-depression",
+   "date_ingested": "2026-09-01"
+  },
+  "user_phrasings": [
+   "我该不该给建议",
+   "忍不住讲道理",
+   "想帮他解决",
+   "是不是不该出主意"
+  ]
+ },
+ {
+  "id": "comm_013",
+  "type": "communication",
+  "scenario": "他说'别管我了'、'你走吧'、把你往外推",
+  "technique_name": "识别推开背后的测试，稳住不走也不硬贴",
+  "do": [
+   "回应背后的恐惧而不是字面意思",
+   "给出明确、有限、可兑现的在场承诺（'我今晚都在'）",
+   "同时尊重他要空间的部分：不消失但降低强度"
+  ],
+  "dont": [
+   "真的按字面意思消失（会被验证为'果然会走'）",
+   "说'你怎么这么说'表达受伤，让他额外背内疚",
+   "强行贴上去打破他的空间需求"
+  ],
+  "example_phrases": [
+   "我不走。但我可以安静一会儿。",
+   "你不用现在跟我说话，我就在。",
+   "我今晚都在，你随时叫我。"
+  ],
+  "why_it_works": "推开常是被抛弃恐惧的行为表达（一种自我保护式的先发制人）。稳定的、可预期的在场比激烈的挽留更能反驳'所有人都会走'的核心信念。",
+  "tags": [
+   "推开",
+   "被抛弃恐惧",
+   "测试"
+  ],
+  "source": {
+   "authority": "Beyond Blue — How to help someone with anxiety or depression",
+   "url": "https://www.beyondblue.org.au/get-support/support-someone/how-to-help-someone-with-anxiety-or-depression",
+   "date_ingested": "2026-09-01"
+  },
+  "user_phrasings": [
+   "让我别管",
+   "叫我走",
+   "把我推开",
+   "说不需要我",
+   "赶我走"
+  ]
+ },
+ {
+  "id": "comm_014",
+  "type": "communication",
+  "scenario": "他自己停药、漏药、或说想把药停了",
+  "technique_name": "不当警察，把决定交回医生",
+  "do": [
+   "先问原因（副作用？觉得好了？经济？忘了？）——原因不同处理完全不同",
+   "明确说明停药需要和医生讨论减量，不适合自己停",
+   "提供实际支持：一起记录、设提醒、陪着去复诊"
+  ],
+  "dont": [
+   "监督式盘问'你今天吃了没'变成每日审讯",
+   "擅自替他决定或藏药",
+   "把吃药和你的爱绑定（'你不吃就是不在乎我'）"
+  ],
+  "example_phrases": [
+   "你是因为副作用不舒服，还是觉得好一些了？",
+   "这个我们别自己决定，跟医生说一声再调好不好。",
+   "要不要我帮你记着，或者我们一起问医生。"
+  ],
+  "why_it_works": "擅自停药是复发的常见诱因，但把伴侣变成监督者会让服药成为关系冲突点。把医学决定归还给医生、把关系里的角色限定为支持，是可持续的分工。",
+  "tags": [
+   "用药",
+   "依从性",
+   "复发风险"
+  ],
+  "source": {
+   "authority": "Healthdirect — Depression",
+   "url": "https://www.healthdirect.gov.au/depression",
+   "date_ingested": "2026-09-01"
+  },
+  "user_phrasings": [
+   "自己停药",
+   "不吃药了",
+   "把药停了",
+   "漏吃药",
+   "断药",
+   "减药没告诉我"
+  ]
+ },
+ {
+  "id": "comm_015",
+  "type": "communication",
+  "scenario": "他说'我永远好不了'、对未来完全绝望",
+  "technique_name": "不许诺结果，只许诺陪伴 + 指出可治疗性",
+  "do": [
+   "承认现在看不到出口这件事本身有多难熬",
+   "陈述事实：抑郁是可治疗的（Beyond Blue 的说法是'there is hope that things can get better'）",
+   "把时间尺度缩短到今天、这一小时"
+  ],
+  "dont": [
+   "打包票'你一定会好的'——没有依据的保证会削弱可信度",
+   "举别人康复的例子做比较",
+   "说'都过去了'否认此刻的真实"
+  ],
+  "example_phrases": [
+   "现在看不到尽头，这本身就很消耗。",
+   "我不敢保证什么时候，但这个病是能治的，这一点是真的。",
+   "我们先过今天。"
+  ],
+  "why_it_works": "绝望感（hopelessness）是自杀风险的强预测因子，需要被认真对待。空洞保证会被抑郁认知驳回；'可治疗'是可核实的事实陈述，而缩短时间尺度让'撑住'变成一个可行的目标。",
+  "tags": [
+   "绝望",
+   "预后",
+   "风险因子"
+  ],
+  "source": {
+   "authority": "Beyond Blue — How to help someone with anxiety or depression",
+   "url": "https://www.beyondblue.org.au/get-support/support-someone/how-to-help-someone-with-anxiety-or-depression",
+   "date_ingested": "2026-09-01"
+  },
+  "user_phrasings": [
+   "说好不了了",
+   "对未来没指望",
+   "觉得没救了",
+   "说一辈子这样",
+   "没有出路"
+  ]
+ },
+ {
+  "id": "comm_016",
+  "type": "communication",
+  "scenario": "他因为工作、考试、学业上的失败强烈自我攻击",
+  "technique_name": "承认损失，拒绝人格结论",
+  "do": [
+   "先承认这件事确实是个损失，别急着淡化",
+   "把归因中的情境因素说出来（但不要替他辩护到失真）",
+   "把'这次没做到'和'我这个人不行'明确分开"
+  ],
+  "dont": [
+   "说'这没什么大不了'——否认了他的真实损失",
+   "立刻转向'下次努力'——他此刻不在解决问题的状态",
+   "跟着他一起复盘所有失误"
+  ],
+  "example_phrases": [
+   "这件事是真的可惜，我知道你准备了很久。",
+   "这次没成，是这一次的事。",
+   "你现在整个人都被这件事定义了，我不这么看你。"
+  ],
+  "why_it_works": "抑郁的归因风格倾向于把失败归为内在、稳定、全局的原因。有效回应是承认具体损失（保持可信）同时切断向人格的泛化。",
+  "tags": [
+   "失败",
+   "归因",
+   "学业工作"
+  ],
+  "source": {
+   "authority": "Beyond Blue — Anxiety management strategies",
+   "url": "https://www.beyondblue.org.au/mental-health/anxiety/treatments-for-anxiety/anxiety-management-strategies",
+   "date_ingested": "2026-09-01"
+  },
+  "user_phrasings": [
+   "挂科",
+   "面试失败",
+   "考砸了",
+   "丢了工作",
+   "项目搞砸",
+   "说自己是废物",
+   "学业受挫"
+  ]
+ },
+ {
+  "id": "comm_017",
+  "type": "communication",
+  "scenario": "他状态明显好转，你想表达高兴又怕给他压力",
+  "technique_name": "看见变化，但不设为新基线",
+  "do": [
+   "具体地指出你观察到的小变化",
+   "把功劳归给他",
+   "明确说明反复是正常的，好一点不等于从此不能坏"
+  ],
+  "dont": [
+   "说'你终于好了！'——把好转固化成期待，之后的波动会变成'退步'",
+   "趁机安排一堆活动",
+   "说'我就说会好起来吧'"
+  ],
+  "example_phrases": [
+   "我注意到你这两天愿意出门了，挺好的。",
+   "这是你自己撑出来的。",
+   "就算过几天又不好，也没关系，本来就是这样的。"
+  ],
+  "why_it_works": "Beyond Blue 建议注意并温和地指出微小的改善。但要防止'好转'被建构成新标准——否则正常的症状波动会被双方体验为失败。",
+  "tags": [
+   "好转",
+   "波动",
+   "期待管理"
+  ],
+  "source": {
+   "authority": "Beyond Blue — How to help someone with anxiety or depression",
+   "url": "https://www.beyondblue.org.au/get-support/support-someone/how-to-help-someone-with-anxiety-or-depression",
+   "date_ingested": "2026-09-01"
+  },
+  "user_phrasings": [
+   "他好像好一点了",
+   "状态变好",
+   "要不要夸他",
+   "有起色",
+   "最近正常一些"
+  ]
+ },
+ {
+  "id": "comm_018",
+  "type": "communication",
+  "scenario": "他反复问'我是不是很麻烦'、'你是不是烦我了'（反复寻求保证）",
+  "technique_name": "给保证，但同时给一个更稳的结构",
+  "do": [
+   "先给出清晰简短的保证",
+   "然后指出这个不安本身：'你现在需要反复确认，是不是有点慌'",
+   "建立可预期的日常（固定时间联系），用结构替代不断确认"
+  ],
+  "dont": [
+   "敷衍地重复'不麻烦不麻烦'（保证的边际效用会衰减）",
+   "表现出不耐烦（会验证他的担心）",
+   "反过来责怪'你怎么老问这个'"
+  ],
+  "example_phrases": [
+   "不烦。这句我可以每天说。",
+   "我感觉你现在有点慌，是不是发生什么了？",
+   "我们说好每天睡前聊十分钟，不用等你确认我在不在。"
+  ],
+  "why_it_works": "反复寻求保证（reassurance seeking）短期缓解焦虑但长期强化它，机制类似强迫的安全行为。既给保证又逐步用稳定结构替代，是不伤关系的降低依赖路径。",
+  "tags": [
+   "寻求保证",
+   "关系焦虑",
+   "强化循环"
+  ],
+  "source": {
+   "authority": "Beyond Blue — Anxiety signs and symptoms",
+   "url": "https://www.beyondblue.org.au/mental-health/anxiety/signs-and-symptoms",
+   "date_ingested": "2026-09-01"
+  },
+  "user_phrasings": [
+   "总问我烦不烦他",
+   "一直确认我爱不爱他",
+   "不停要保证",
+   "反复问同一个问题",
+   "要安全感"
+  ]
+ },
+ {
+  "id": "comm_019",
+  "type": "communication",
+  "scenario": "你自己撑不住了，但又怕说出来会伤到他",
+  "technique_name": "说自己的状态，不归因于他",
+  "do": [
+   "用'我'开头描述状态，不用'你让我'",
+   "同时给出你不会离开的明确信号",
+   "真的去找自己的支持（朋友、咨询、carer 服务），不要只靠他"
+  ],
+  "dont": [
+   "硬撑到崩溃后爆发——伤害比早说大得多",
+   "把疲惫说成他的错",
+   "在他急性发作当下提这件事"
+  ],
+  "example_phrases": [
+   "我最近有点透支，不是因为你，是我自己需要休息一下。",
+   "我今晚想早点睡，明天我们再聊，我不是在躲你。",
+   "我也在找人聊聊我自己的状态。"
+  ],
+  "why_it_works": "Beyond Blue 明确建议照顾者保护自身健康、必要时寻求个人或伴侣咨询（并提到 Carer Gateway）。照顾者耗竭是关系破裂的主要路径之一；早期、非归因的表达能维持可持续性。",
+  "tags": [
+   "照顾者",
+   "耗竭",
+   "自我关怀"
+  ],
+  "source": {
+   "authority": "Beyond Blue — How to help someone with anxiety or depression",
+   "url": "https://www.beyondblue.org.au/get-support/support-someone/how-to-help-someone-with-anxiety-or-depression",
+   "date_ingested": "2026-09-01"
+  },
+  "user_phrasings": [
+   "我自己也快崩了",
+   "照顾者累了",
+   "我需要休息",
+   "我撑不住",
+   "我也很难受"
+  ]
+ },
+ {
+  "id": "comm_020",
+  "type": "communication",
+  "scenario": "他不想出门、不想见人、什么活动都拒绝",
+  "technique_name": "共同活动而非独自任务",
+  "do": [
+   "提议一起做，而不是让他自己做",
+   "把选项减少到两个（选择过多会瘫痪决策）",
+   "接受最小版本（在楼下站五分钟也算）"
+  ],
+  "dont": [
+   "列一堆活动让他选",
+   "强调'对你有好处'（把活动变成治疗任务）",
+   "因为他拒绝就完全停止邀请"
+  ],
+  "example_phrases": [
+   "我要去楼下买个东西，你要不要一起，不下车也行。",
+   "今天两个选择：出去走十分钟，或者在家一起看个片。",
+   "去不了也没事，我明天再问。"
+  ],
+  "why_it_works": "Beyond Blue 建议一起做活动来打断负面思维循环。共同参与降低了启动成本，减少选项则绕开了抑郁状态下受损的决策功能。",
+  "tags": [
+   "社交回避",
+   "行为激活",
+   "共同活动"
+  ],
+  "source": {
+   "authority": "Beyond Blue — How to help someone with anxiety or depression",
+   "url": "https://www.beyondblue.org.au/get-support/support-someone/how-to-help-someone-with-anxiety-or-depression",
+   "date_ingested": "2026-09-01"
+  },
+  "user_phrasings": [
+   "约不出来",
+   "不愿意见人",
+   "拒绝所有活动",
+   "不想出门",
+   "社恐了",
+   "窝在家里"
+  ]
+ },
+ {
+  "id": "comm_021",
+  "type": "communication",
+  "scenario": "生日、纪念日、过年过节，他状态特别差或觉得自己毁了气氛",
+  "technique_name": "提前降低仪式的期待值",
+  "do": [
+   "提前几天就说清楚：过不过、怎么过都可以",
+   "准备一个最低版本的方案（十分钟的版本）",
+   "当天不评价他的状态"
+  ],
+  "dont": [
+   "用惊喜制造社交压力",
+   "说'就今天一天，你忍一下'",
+   "事后表达失望"
+  ],
+  "example_phrases": [
+   "今年怎么过都行，取消也行，我不会失望。",
+   "我们准备一个十分钟版本的，不行就停。",
+   "你在这儿就够了，气氛不是你的责任。"
+  ],
+  "why_it_works": "节日的社会期待会放大'我毁掉了它'的自责，而预期性焦虑本身就会恶化症状。提前解除期待，把仪式从'必须成功的表演'降级为'可选项'。",
+  "tags": [
+   "节日",
+   "期待管理",
+   "内疚"
+  ],
+  "source": {
+   "authority": "Beyond Blue — Anxiety management strategies",
+   "url": "https://www.beyondblue.org.au/mental-health/anxiety/treatments-for-anxiety/anxiety-management-strategies",
+   "date_ingested": "2026-09-01"
+  },
+  "user_phrasings": [
+   "生日",
+   "过年",
+   "纪念日",
+   "节日",
+   "圣诞",
+   "中秋",
+   "气氛"
+  ]
+ },
+ {
+  "id": "comm_022",
+  "type": "communication",
+  "scenario": "他发作过后跟你道歉，说'对不起我又这样了'",
+  "technique_name": "接受道歉，但不确认罪名",
+  "do": [
+   "接住道歉的情感（他在乎你）",
+   "但不确认'你做错了'这个前提",
+   "把注意力转向他此刻的状态"
+  ],
+  "dont": [
+   "说'没关系'然后憋着（之后会以别的方式爆出来）",
+   "趁机清算刚才的伤害",
+   "说'下次别这样了'——他控制不了"
+  ],
+  "example_phrases": [
+   "我听到了。但你不用为生病道歉。",
+   "如果刚才有什么真的伤到我，我会跟你说，现在没有。",
+   "你现在感觉怎么样？"
+  ],
+  "why_it_works": "接受道歉但拒绝'症状=过错'的框架，可以避免内疚累积成新的抑郁燃料，同时保留你真实表达受伤的权利（有边界的关系才可持续）。",
+  "tags": [
+   "道歉",
+   "内疚",
+   "事后修复"
+  ],
+  "source": {
+   "authority": "Beyond Blue — How to help someone with anxiety or depression",
+   "url": "https://www.beyondblue.org.au/get-support/support-someone/how-to-help-someone-with-anxiety-or-depression",
+   "date_ingested": "2026-09-01"
+  },
+  "user_phrasings": [
+   "他跟我道歉",
+   "说对不起又发作了",
+   "事后内疚",
+   "为发脾气道歉"
+  ]
+ }
 ]

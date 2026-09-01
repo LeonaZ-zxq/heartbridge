@@ -24,12 +24,22 @@ def main() -> int:
     ap.add_argument("--backends", nargs="*", default=["bm25", "dense", "hybrid"])
     ap.add_argument("--k", type=int, default=3)
     ap.add_argument("--show-failures", action="store_true")
+    ap.add_argument("--set", default="dev", choices=["dev", "holdout", "both"],
+                    help="dev=开发集（写文档扩展时参考过，分数偏乐观）; holdout=留出集（诚实数字）")
     args = ap.parse_args()
 
     cards = load_cards(CONFIG.cards_dir)
-    queries = load_eval_set(Path(__file__).parent.parent / "tests/fixtures/retrieval_eval.json")
-    print(f"知识库: {len(cards)} 张卡 | 评测集: {len(queries)} 条查询 "
-          f"（其中 {sum(q.get('paraphrase', False) for q in queries)} 条为改写式查询）\n")
+    fx = Path(__file__).parent.parent / "tests/fixtures"
+    sets = {"dev": "retrieval_eval.json", "holdout": "retrieval_holdout.json"}
+    chosen = list(sets) if args.set == "both" else [args.set]
+    for name in chosen:
+        _run(cards, load_eval_set(fx / sets[name]), name, args)
+    return 0
+
+
+def _run(cards, queries, set_name, args):
+    print(f"[{set_name}] 知识库 {len(cards)} 张卡 | {len(queries)} 条查询 "
+          f"（改写式 {sum(q.get('paraphrase', False) for q in queries)} 条）")
 
     results = []
     for backend in args.backends:
@@ -49,7 +59,7 @@ def main() -> int:
         if args.show_failures and res.failures:
             for f in res.failures:
                 print(f"    ✗ {f['q']}  期望 {f['expect']}  实际 {f['got']}")
-    return 0
+    print()
 
 
 if __name__ == "__main__":

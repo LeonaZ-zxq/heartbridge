@@ -88,11 +88,17 @@ class CommunicationCard(BaseCard):
     dont: list[NonEmptyStr] = Field(min_length=1)
     example_phrases: list[NonEmptyStr] = Field(min_length=1)
     why_it_works: NonEmptyStr
+    user_phrasings: list[str] = Field(
+        default_factory=list,
+        description="用户可能会怎么描述这个处境（口语、俚语、缩写）。"
+                    "这是**文档扩展 / doc2query**：用预期的查询语言扩充索引，"
+                    "补上词法检索最大的短板——文档和查询用词不重合（vocabulary mismatch）。",
+    )
 
     def index_text(self) -> str:
-        # 只索引「用户会怎么描述这个处境」：场景 + 主题标签。
+        # 只索引「用户会怎么描述这个处境」：场景 + 用户口语说法 + 主题标签。
         # 刻意不含 technique_name / example_phrases —— 见消融实验结论。
-        return " ".join([self.scenario, *self.tags])
+        return " ".join([self.scenario, *self.user_phrasings, *self.tags])
 
 
 class SomaticCard(BaseCard):
