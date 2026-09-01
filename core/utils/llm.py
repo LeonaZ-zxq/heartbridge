@@ -11,10 +11,12 @@
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Callable, Protocol
 
 from core.config import CONFIG, Config
@@ -146,6 +148,86 @@ class MockProvider:
             if marker in blob:
                 return handler(system, user)
         return json.dumps({"mock": True, "note": "no handler matched"}, ensure_ascii=False)
+
+
+class CassetteProvider:
+    """录制 / 回放真实 LLM 调用（cassette 模式）。
+
+    ━━━ 为什么评测需要这一层 ━━━
+
+    一份发布出去的评测报告，别人应该能复现。但生成评测依赖一次真实的
+    LLM 调用，而真实调用是：要 key、要额度、会限速、**而且不确定**——
+    同样的 prompt 明天跑出来就是另一批回复。于是「我复现不出你的数字」
+    既可能是我配错了，也可能只是模型飘了，谁也说不清。
+
+    解决办法是软件工程里已经很成熟的一招（HTTP 测试里叫 VCR / cassette）：
+    **把那一次真实调用的输入输出录下来，之后按输入的哈希回放。**
+
+    - 录制一次 → 评测结果永久可复现，不需要 key，不花钱，CI 里能跑
+    - prompt 一改，哈希就对不上 → 强制你重新录制，不会拿旧回复冒充新系统
+      （这条很重要：它让 cassette 没法变成自欺欺人的工具）
+    - 回放缺条目时是**硬失败**，不是静默降级——评测工具必须能区分
+      「系统坏了」和「系统表现差」
+
+    `strict=False` 时缺条目会转交给 `fallback`（真实 provider），
+    用于增量补录：改了两个情境，只重打那两次。
+    """
+
+    name = "cassette"
+
+    def __init__(self, path: "Path", *, mode: str = "replay",
+                 fallback: "LLMProvider | None" = None, strict: bool = True) -> None:
+        self.path = Path(path)
+        self.mode = mode          # "replay" | "record"
+        self.fallback = fallback
+        self.strict = strict
+        self.hits = 0
+        self.misses = 0
+        self._data: dict[str, dict] = {}
+        if self.path.exists():
+            self._data = json.loads(self.path.read_text(encoding="utf-8"))
+
+    @staticmethod
+    def key_for(system: str, user: str) -> str:
+        """输入的指纹。prompt 变了指纹就变了——这正是我们要的。"""
+        h = hashlib.sha256()
+        h.update(system.encode("utf-8"))
+        h.update(b"\x00")
+        h.update(user.encode("utf-8"))
+        return h.hexdigest()[:16]
+
+    def complete(self, system: str, user: str, *, temperature: float = 0.3) -> str:
+        k = self.key_for(system, user)
+        entry = self._data.get(k)
+        if entry is not None:
+            self.hits += 1
+            return entry["response"]
+
+        self.misses += 1
+        if self.fallback is None or self.strict:
+            raise LLMError(
+                f"cassette 里没有这条记录（key={k}）。"
+                "prompt 变过了，或者这次的情境没录过 —— 需要重新录制，"
+                "不能拿旧回复冒充新系统。"
+            )
+        resp = self.fallback.complete(system, user, temperature=temperature)
+        self._data[k] = {"system": system, "user": user, "response": resp}
+        self.save()
+        return resp
+
+    def put(self, system: str, user: str, response: str) -> str:
+        """手工写入一条（用于离线补录）。返回 key。"""
+        k = self.key_for(system, user)
+        self._data[k] = {"system": system, "user": user, "response": response}
+        return k
+
+    def save(self) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.path.write_text(
+            json.dumps(self._data, ensure_ascii=False, indent=1), encoding="utf-8")
+
+    def __len__(self) -> int:
+        return len(self._data)
 
 
 # --------------------------------------------------------------------------- #

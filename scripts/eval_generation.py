@@ -34,7 +34,7 @@ from core.knowledge.retrieval import build_retriever  # noqa: E402
 from core.knowledge.schema import load_cards  # noqa: E402
 from core.profile.models import PartnerProfile  # noqa: E402
 from core.safety.detector import RiskLevel, rule_scan  # noqa: E402
-from core.utils.llm import get_llm  # noqa: E402
+from core.utils.llm import CassetteProvider, get_llm  # noqa: E402
 from core.utils.text import parse_transcript  # noqa: E402
 
 OUT = CONFIG.private_dir / "generation_eval"
@@ -48,10 +48,40 @@ def _profile() -> PartnerProfile:
     return PartnerProfile.model_validate(data)
 
 
+def _preflight(llm) -> None:
+    """先打一发真实请求，确认 LLM 通道是通的。
+
+    为什么要这一步：`generate_options` 在 LLMError 时返回空列表（对线上是
+    正确的降级——宁可不给建议，也不给编的建议），但对评测脚本来说，
+    「全部失败」和「模型认真回答了但都不合格」会产出一模一样的空评分表。
+    评测工具必须能区分**系统坏了**和**系统表现差**，否则一份 0/0 的报告
+    会被误读成结论。所以这里让通道故障**大声失败**。
+    """
+    from core.utils.llm import LLMError
+
+    try:
+        llm.complete("只输出 JSON。", '返回 {"ok": true}', temperature=0.0)
+    except LLMError as exc:
+        print(f"\nLLM 通道不通，评测中止（没有生成任何候选）：\n  {exc}\n")
+        print("常见原因：\n"
+              "  - OpenRouter 免费模型需要在 Settings → Privacy 里允许 prompt 记录，"
+              "否则返回 404 no endpoints\n"
+              "  - 免费额度限速（429），等几分钟或换一个 :free 模型\n"
+              "  - key 失效 / 已轮换（401）\n"
+              "  - 模型名写错或已下线（400/404）\n")
+        raise SystemExit(2)
+
+
 def cmd_generate(args) -> int:
     OUT.mkdir(parents=True, exist_ok=True)
     situations = json.loads(FIXTURE.read_text(encoding="utf-8"))["situations"]
-    llm = get_llm(CONFIG)
+    if args.cassette:
+        # 回放模式：不联网、不花钱、结果完全可复现。
+        llm = CassetteProvider(Path(args.cassette), mode="replay", strict=True)
+        print(f"回放 cassette：{args.cassette}（{len(llm)} 条记录）")
+    else:
+        llm = get_llm(CONFIG)
+        _preflight(llm)
     retriever = build_retriever(load_cards(CONFIG.cards_dir), backend=args.backend)
     profile = _profile()
 
@@ -84,6 +114,12 @@ def cmd_generate(args) -> int:
         json.dumps(records, ensure_ascii=False, indent=1), encoding="utf-8")
     (OUT / "rating_sheet.md").write_text(sheet, encoding="utf-8")
     (OUT / "answer_key.json").write_text(dump_key(key), encoding="utf-8")
+
+    if not blind:
+        print("\n生成了 0 条候选：通道是通的，但每个情境的输出都没通过校验"
+              "（缺 why / JSON 不合法 / 引用了不存在的 card_id）。"
+              "\n看 data/generation_eval/candidates.json 里的 options 字段定位。")
+        return 2
 
     print(f"\n候选已生成：{len(blind)} 条待评")
     print(f"  评分表   {OUT / 'rating_sheet.md'}   ← 现在去填这个")
@@ -153,7 +189,10 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
     g = sub.add_parser("generate"); g.add_argument("--backend", default=CONFIG.retrieval_backend)
-    g.add_argument("--per-arm", type=int, default=2); g.set_defaults(func=cmd_generate)
+    g.add_argument("--per-arm", type=int, default=2)
+    g.add_argument("--cassette", default=None,
+                   help="回放一份录好的 LLM 输出，不联网、可复现")
+    g.set_defaults(func=cmd_generate)
     s = sub.add_parser("score"); s.set_defaults(func=cmd_score)
     j = sub.add_parser("judge"); j.set_defaults(func=cmd_judge)
     args = ap.parse_args()
