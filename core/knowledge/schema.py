@@ -46,11 +46,21 @@ class Source(BaseModel):
         return self
 
 
+EvidenceTier = Literal["clinical_guideline", "practitioner", "lived_experience"]
+
+
 class BaseCard(BaseModel):
     id: NonEmptyStr
     type: CardType
     source: Source
     tags: list[str] = Field(default_factory=list)
+
+    # 证据分级。加这个字段是为了让**博主内容能进来但不被当成临床指南**。
+    # 亲历经验恰恰是「具体、有真实语感、不空」的语料来源——临床指南才是
+    # 空话重灾区——所以要用；但读的人有权知道一条建议的分量来自哪里。
+    evidence_tier: EvidenceTier = "clinical_guideline"
+    # 尚未逐条核对过原始出处的卡。UI 会显示提示，蒸馏管道产出的新卡默认为 True。
+    needs_review: bool = False
 
     @field_validator("id")
     @classmethod
