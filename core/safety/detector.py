@@ -99,8 +99,49 @@ CRISIS_RULES: list[Rule] = [
                  r"|最后(跟|和)(你|我)说|再也(见不到|不会打扰)", RiskLevel.CRISIS),
 ]
 
+
+# 准备性行为的**良性解释守卫**。
+# 和 _IDIOM_GUARDS 同一个思路：不是把规则写得更聪明，而是承认
+# 「同一个行为在不同语境里意思完全不同」，然后把语境显式建模出来。
+# 命中准备性行为、但附近存在一个平凡的解释（搬家/出差/生日）时降一级。
+# 只对 PREPARATORY 生效——绝不对真正的危机规则做任何降级。
+_BENIGN_CONTEXT = re.compile(
+    r"搬家|出差|旅行|旅游|留学|装修|过敏|房东|不让养|工作调动|回国|出国"
+    r"|生日|纪念日|结婚|领证|情人节|过节|毕业"
+    r"|太浪费时间|想戒|戒掉|专心|备考|捐掉|捐给|二手|闲鱼"
+)
+
+# ---- 准备性行为（安排后事）----
+# 这一类是**后来补的**，补的原因写在 docs/ROADMAP.md 里，值得记住：
+# 第一版安全层在 41 条评测集上拿到 100% recall，而这个数字是错的——
+# 评测集和检测器出自同一个人、同一套心智模型，于是**共享同一个盲区**：
+# 两边都只想到了「怎么用语言表达想死」，都没想到「不说死，但在做准备」。
+# 送走宠物、把东西托付给人、注销账号、留一封信——这些是自杀风险评估里
+# 标准的 warning signs，而且往往**一个死字都不含**。
+#
+# 定级在 ELEVATED 而不是 CRISIS，是刻意的：
+#   「我把猫送去我妈那儿养了」完全可能只是因为他这个月出差。
+# 这类信号的**歧义是本质的**，不是规则写得不够好。所以正确的处理不是
+# 猜，而是**保证它进入 LLM 二次确认**（`assess()` 在 level < CRISIS 时
+# 才调 LLM）。规则层负责「不要漏看」，模型层负责「结合上下文判断」。
+# 这正是两级架构存在的理由——第一次有一类信号真的用上了它。
+PREPARATORY_RULES: list[Rule] = [
+    _r("托付_宠物", r"(把|将)?(猫|狗|它|宠物|兔子|仓鼠).{0,8}(送(去|到|给|走)|托付|交给|拜托).{0,6}"
+                    r"(养|照顾|管)|不要(它|猫|狗)了|养不了(它|猫|狗)了", RiskLevel.ELEVATED),
+    _r("交代_财物", r"(东西|遗物|衣服|书|收藏|房子|存款).{0,8}(你们|你|他们).{0,6}(看着)?(分|处理|拿走|收着)"
+                    r"|(密码|账号|银行卡|保单|保险).{0,10}(告诉(你|我)|发给(你|我)|记一下|存好)", RiskLevel.ELEVATED),
+    _r("留信", r"(写|留)了.{0,4}(封|张)?(信|纸条|字条|东西).{0,10}(抽屉|桌上|枕头|给你|你看)"
+               r"|等我不在了.{0,6}(再|你)?(看|打开)", RiskLevel.ELEVATED),
+    _r("告别_弱式", r"谢谢你(这|那)?(两|三|四|五|几|\d+)年|谢谢你(一路|一直)?(陪|的照顾)"
+                    r"|你(要|得)(好好的|过得好|开心)|(以后|将来)(要|你)?好好(照顾自己|生活|的)"
+                    r"|别(记恨|怪)我", RiskLevel.ELEVATED),
+    _r("清理_痕迹", r"(注销|删掉|删了|清空)(了)?(微博|朋友圈|账号|所有(照片|聊天)|社交)"
+                    r"|(退了|退出)所有(群|群聊)", RiskLevel.ELEVATED),
+]
+
 ELEVATED_RULES: list[Rule] = [
-    _r("绝望", r"永远(好不了|不会好)|没有希望|看不到(头|尽头|未来)|这辈子(就这样|完了)", RiskLevel.ELEVATED),
+    _r("绝望", r"永远(好不了|不会好)|(没有|看不到)(任何)?希望|看不到(头|尽头|未来)"
+                r"|这辈子(就这样|完了|都?(好不了|不会好))|(一辈子|再也)(好不了|不会好)", RiskLevel.ELEVATED),
     _r("撑不住", r"撑不(下去|住)|坚持不(下去|住)|扛不住|受不了了|到极限了", RiskLevel.ELEVATED),
     _r("无价值", r"不配(被爱|活着|存在)|是个(废物|累赘|垃圾)|一无是处|没有价值|多余的", RiskLevel.ELEVATED),
     _r("拖累", r"拖累|负担|没有我(会|更)?(好|轻松)|离开我(会|更)?好", RiskLevel.ELEVATED),
@@ -130,9 +171,17 @@ def rule_scan(text: str) -> RiskAssessment:
     level = RiskLevel.NONE
     signals: list[str] = []
 
-    for rule in CRISIS_RULES + ELEVATED_RULES:
+    prep_names = {r.name for r in PREPARATORY_RULES}
+    benign = bool(_BENIGN_CONTEXT.search(masked))
+
+    for rule in CRISIS_RULES + PREPARATORY_RULES + ELEVATED_RULES:
         for m in rule.pattern.finditer(masked):
             hit_level = rule.level
+            if benign and rule.name in prep_names:
+                # 有平凡解释 → 降级。仍然记一条信号：降级不等于当没看见。
+                hit_level = RiskLevel(max(RiskLevel.NONE, hit_level - 1))
+                signals.append(f"{rule.name}(良性语境降级):{m.group()}")
+                continue
             if rule.negation_sensitive:
                 prefix = masked[max(0, m.start() - 4) : m.start()]
                 if _NEGATORS.search(prefix):
