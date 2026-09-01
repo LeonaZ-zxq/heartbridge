@@ -132,6 +132,7 @@ def distill(
     retriever: Retriever | None = None,
     dedup_threshold: float = 0.12,
     max_repairs: int = 1,
+    evidence_tier: str = "lived_experience",
 ) -> DistillReport:
     """把一段文字稿蒸馏成卡片。
 
@@ -150,11 +151,17 @@ def distill(
         for raw in items:
             if not isinstance(raw, dict):
                 continue
-            # ── 来源与 id 由代码写死，模型给什么都不算数 ──
-            raw = {k: v for k, v in raw.items() if k not in ("source", "id", "type")}
+            # ── 来源、id、证据层级由代码写死，模型给什么都不算数 ──
+            raw = {k: v for k, v in raw.items()
+                   if k not in ("source", "id", "type", "evidence_tier", "needs_review")}
             raw["id"] = f"comm_{next_id:03d}"
             raw["type"] = "communication"
             raw["source"] = source
+            # 证据层级和 source 同理，属于**管道知道、模型不知道**的事实。
+            # 默认值是 clinical_guideline，而摄取进来的全是博主口播——
+            # 不显式盖章，一批短视频经验就会以"临床指南"的身份进检索结果，
+            # 这比少几张卡严重得多。
+            raw["evidence_tier"] = evidence_tier
 
             try:
                 card = CommunicationCard.model_validate(raw)

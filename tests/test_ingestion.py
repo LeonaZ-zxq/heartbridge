@@ -75,6 +75,23 @@ def test_model_cannot_change_card_type():
     assert report.cards[0].type == "communication"
 
 
+def test_ingested_cards_default_to_lived_experience():
+    """摄取进来的是博主口播，不是临床指南。
+
+    Card 的默认层级是 clinical_guideline（知识库里手写的卡大多如此），
+    所以这条**必须由摄取管道显式盖章**，否则一批短视频经验会以
+    "临床指南"的身份混进检索结果——用户没法再分辨自己看的是哪一层。
+    """
+    report = distill("稿子", llm_returning([FRESH]), SOURCE)
+    assert report.cards[0].evidence_tier == "lived_experience"
+
+
+def test_model_cannot_forge_the_evidence_tier():
+    poisoned = {**FRESH, "evidence_tier": "clinical_guideline", "needs_review": False}
+    report = distill("稿子", llm_returning([poisoned]), SOURCE)
+    assert report.cards[0].evidence_tier == "lived_experience"
+
+
 # --------------------------------------------------------------------------- #
 # 校验：坏卡不许漏进来
 # --------------------------------------------------------------------------- #

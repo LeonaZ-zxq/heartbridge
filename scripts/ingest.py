@@ -15,22 +15,71 @@
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from core.config import CONFIG  # noqa: E402
+from core.ingestion.downloader import SourceMeta  # noqa: E402
 from core.ingestion.pipeline import ingest  # noqa: E402
 from core.knowledge.retrieval import build_retriever  # noqa: E402
 from core.knowledge.schema import load_cards  # noqa: E402
-from core.utils.llm import get_llm  # noqa: E402
+from core.utils.llm import LLMError, get_llm  # noqa: E402
 
 
 
 MEDIA_EXT = {".mp4", ".mov", ".mkv", ".webm", ".avi",
              ".m4a", ".mp3", ".wav", ".aac", ".flac", ".ogg"}
 TEXT_EXT = {".txt", ".md"}
+
+# 下载工具存下来的命名约定：@作者_发布日期_标题.mp4
+_NAME = re.compile(r"^@?(?P<author>[^_]+)_(?P<date>\d{8})_(?P<title>.+)$")
+
+
+def _source_from_name(path: Path) -> SourceMeta | None:
+    """从文件名还原作者与标题。
+
+    为什么值得单独写：走「已有文字稿」这条路时，管道原本会把来源标成
+    `platform="manual" / title="pasted transcript"`——**作者信息就此丢失**。
+    而「这条建议出自哪个博主」正是这个知识库敢用的前提：临床指南和
+    博主经验是两个证据层级，用户有权知道自己看的是哪一层。
+    文件名里已经有这个信息，不去读它等于自己把 provenance 扔了。
+
+    解析不出来就返回 None，让管道退回默认值——宁可标成 manual，
+    也不要猜一个作者名盖上去。
+    """
+    m = _NAME.match(path.stem)
+    if not m:
+        return None
+    return SourceMeta(
+        platform="local_media",
+        author=m["author"],
+        title=f"{m['title']}（{m['date'][:4]}-{m['date'][4:6]}-{m['date'][6:]}）",
+    )
+
+
+def _preflight(llm) -> None:
+    """处理整批之前，先打一发真实请求确认 LLM 通道是通的。
+
+    这条和评测脚本里的预检是同一个教训：`_distill_chunk` 在 LLMError 时
+    返回空列表（对单次摄取是合理降级），于是「通道全挂」和
+    「文字稿里确实没有可提取的技巧」会产生**一模一样的空目录**。
+    26 个文件跑两小时、转写全部成功、distilled/ 空空如也——
+    这个失败模式最贵的地方不是失败，是它看起来像成功。
+    """
+    try:
+        llm.complete("只输出 JSON。", '返回 {"ok": true}', temperature=0.0)
+    except LLMError as exc:
+        print(f"\nLLM 通道不通，批量摄取中止（一张卡都不会产出）：\n  {exc}\n")
+        print("常见原因：\n"
+              "  - OpenRouter 免费模型要在 Settings → Privacy 里允许 prompt 记录，"
+              "否则返回 404 no endpoints\n"
+              "  - 免费额度限速（429），等几分钟或换一个 :free 模型\n"
+              "  - key 失效 / 已轮换（401）\n"
+              "  - 模型名写错或已下线（400/404）\n")
+        raise SystemExit(2)
 
 
 def run_batch(args) -> int:
@@ -46,7 +95,10 @@ def run_batch(args) -> int:
     """
     files = sorted(
         f for f in args.dir.iterdir()
-        if f.is_file() and f.suffix.lower() in (MEDIA_EXT | TEXT_EXT)
+        if f.is_file()
+        and f.suffix.lower() in (MEDIA_EXT | TEXT_EXT)
+        and not f.name.startswith(".")
+        and f.name.lower() != "readme.md"   # 目录说明不是素材
     )
     if not files:
         print(f"{args.dir} 里没有可处理的文件。"
@@ -58,6 +110,7 @@ def run_batch(args) -> int:
     next_index = args.start_index or ((max(comm) + 1) if comm else 1)
 
     llm = get_llm(CONFIG)
+    _preflight(llm)
     pool = list(existing)          # 累积：包含本批已经产出的新卡
     total_new = total_review = total_rejected = 0
 
@@ -74,6 +127,7 @@ def run_batch(args) -> int:
                 retriever=retriever,
                 start_index=next_index,
                 whisper_model=args.whisper_model,
+                meta=_source_from_name(f),
             )
         except Exception as exc:   # noqa: BLE001
             # 一个文件失败不该让整批停下来——素材质量参差是常态。
@@ -95,6 +149,13 @@ def run_batch(args) -> int:
         print()
 
     print(f"━━ 完成：新卡 {total_new} 张，待复核 {total_review} 张，校验未通过 {total_rejected} 张")
+    if total_new + total_review + total_rejected == 0:
+        print("\n⚠ 整批一条都没产出。转写成功但蒸馏为空，通常不是素材的问题：\n"
+              "  - 模型持续返回非数组 / 空数组 → 看看 prompt 和转写质量\n"
+              "  - 通道中途才挂（预检时是通的）→ 429 限速最常见，隔几分钟重跑\n"
+              "  已有的文字稿在 data/transcripts/，重跑时用 --dir data/transcripts "
+              "可跳过转写，几分钟就能跑完。")
+        return 1
     print(f"产出在 {CONFIG.private_dir / 'distilled'}/，**人工复核后**再合并进 "
           f"knowledge_base/cards/")
     print("合并完记得重跑：pytest -q && python scripts/eval_retrieval.py "

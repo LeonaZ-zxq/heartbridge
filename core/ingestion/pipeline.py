@@ -48,20 +48,28 @@ def ingest(
     start_index: int = 1,
     cfg: Config | None = None,
     whisper_model: str = "small",
+    meta: SourceMeta | None = None,
+    evidence_tier: str = "lived_experience",
 ) -> IngestResult:
     cfg = cfg or CONFIG
     cfg.ensure_dirs()
 
     # ── 1. 拿到音频与来源元数据 ──
     if transcript_text is not None:
-        meta = SourceMeta(platform="manual", title="pasted transcript")
+        # 调用方能说清来源就用它的。说不清才退回 "manual"——
+        # 但 platform="manual" 是一个**信号**：这批卡的 provenance 是断的，
+        # 合并进知识库前应该先看一眼。来源盖章是代码的职责，
+        # 不能因为走了"已有文字稿"这条捷径就悄悄丢掉。
+        meta = meta or SourceMeta(platform="manual", title="pasted transcript")
         tx = Transcript(text=transcript_text)
         tx_path = None
     else:
         if url:
-            audio_path, meta = download_audio(url, cfg.private_dir / "audio")
+            audio_path, probed = download_audio(url, cfg.private_dir / "audio")
+            meta = meta or probed
         elif audio:
-            audio_path, meta = local_audio(audio)
+            audio_path, probed = local_audio(audio)
+            meta = meta or probed
         else:
             raise ValueError("url / audio / transcript_text 至少给一个")
         tx = transcribe(audio_path, model_size=whisper_model)
@@ -71,6 +79,7 @@ def ingest(
     report = distill(
         tx.text, llm, meta.to_source_dict(),
         start_index=start_index, retriever=retriever,
+        evidence_tier=evidence_tier,
     )
 
     # ── 3. 落盘。新卡和待复核卡分开 ──
