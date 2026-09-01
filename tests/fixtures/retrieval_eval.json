@@ -1,0 +1,38 @@
+{
+  "_note": "检索评测集。每条 query 用真实会发生的口语写，不是照抄卡片里的措辞——照抄等于自己给自己出送分题，测出来的高分是假的。paraphrase=true 的条目刻意不与卡片共享关键词，用来暴露纯词法检索的失败模式。",
+  "queries": [
+    {"q": "他刚才说他觉得自己不配被爱", "expect": "comm_001", "paraphrase": false, "note": "核心场景，字面重合度高"},
+    {"q": "他一直说自己什么都做不好，一无是处", "expect": "comm_001", "paraphrase": true, "note": "同一场景但零关键词重合"},
+    {"q": "他说跟着我很辛苦，说我可以找更好的", "expect": "comm_002", "paraphrase": false},
+    {"q": "他说不想活了，但没说要怎么做", "expect": "comm_003", "paraphrase": false, "note": "风险边界样本"},
+    {"q": "他三天没回我消息了，我该发什么", "expect": "comm_004", "paraphrase": false},
+    {"q": "他说我根本体会不到他的痛苦", "expect": "comm_005", "paraphrase": true},
+    {"q": "他刚刚冲我吼，说了很难听的话", "expect": "comm_006", "paraphrase": false},
+    {"q": "他一直在重复讲同一件事，绕不出来", "expect": "comm_007", "paraphrase": false},
+    {"q": "他不肯去医院，说看了也没有用", "expect": "comm_008", "paraphrase": false},
+    {"q": "他说好累什么都不想做，连床都下不了", "expect": "comm_009", "paraphrase": false},
+    {"q": "他因为一件很小的事就开始骂自己", "expect": "comm_010", "paraphrase": false},
+    {"q": "凌晨两点他哭着打给我，我在墨尔本他在国内", "expect": "comm_011", "paraphrase": true, "note": "异地深夜；卡片里没有'墨尔本''凌晨'这些词"},
+    {"q": "我一开口就想给他出主意，是不是不对", "expect": "comm_012", "paraphrase": true},
+    {"q": "他叫我别管他了，让我走", "expect": "comm_013", "paraphrase": false},
+    {"q": "他自己把抗抑郁药停了没告诉我", "expect": "comm_014", "paraphrase": false},
+    {"q": "他说这辈子都不会好了", "expect": "comm_015", "paraphrase": true},
+    {"q": "他挂科了然后开始说自己是废物", "expect": "comm_016", "paraphrase": true},
+    {"q": "他最近好像好一点了，我要不要说出来", "expect": "comm_017", "paraphrase": false},
+    {"q": "他每天都问我是不是嫌他烦", "expect": "comm_018", "paraphrase": false},
+    {"q": "我自己快撑不住了但不敢跟他说", "expect": "comm_019", "paraphrase": false},
+    {"q": "怎么都约不出他，他什么都不想参加", "expect": "comm_020", "paraphrase": true},
+    {"q": "他跟我道歉说对不起又发作了", "expect": "comm_022", "paraphrase": false},
+
+    {"q": "他说心跳得特别快，胸口像压了石头", "expect": "soma_001", "paraphrase": true, "note": "躯体化：口语描述，非症状学名词"},
+    {"q": "他喘不上气，手都麻了", "expect": "soma_002", "paraphrase": false},
+    {"q": "他现在呼吸特别快特别浅，说头晕", "expect": "soma_002", "paraphrase": true},
+    {"q": "他浑身抖得停不下来还一直冒冷汗", "expect": "soma_003", "paraphrase": false},
+    {"q": "他这两天什么都吃不下，一吃就想吐", "expect": "soma_004", "paraphrase": false},
+    {"q": "他每天睡十几个小时还是没精神，起不来床", "expect": "soma_005", "paraphrase": false},
+    {"q": "他老说头疼背疼，可是检查都正常", "expect": "soma_006", "paraphrase": false},
+    {"q": "他说感觉整个世界不真实，像隔了一层玻璃", "expect": "soma_007", "paraphrase": true, "note": "解离；卡片用的是'解离''失真感'"},
+    {"q": "他叫他半天没反应，眼神发直", "expect": "soma_007", "paraphrase": true},
+    {"q": "他每天四五点就醒了再也睡不着", "expect": "soma_008", "paraphrase": false}
+  ]
+}

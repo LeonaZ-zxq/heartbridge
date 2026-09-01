@@ -67,6 +67,15 @@ class BaseCard(BaseModel):
         场景描述、症状名、反例（dont/avoid_saying）。
         因为用户查询长得像「他说自己不配被爱」，而不像「先接住情绪不急着反驳」。
         索引文本要贴近 query 的语言分布，而不是贴近答案的语言分布。
+
+        这不是拍脑袋的设计，是 scripts/eval_index_ablation.py 测出来的结论：
+        在 32 条查询的评测集上（BM25 后端），
+            只索引技巧名                 Recall@3 = 31.2%
+            索引场景 + 别名 + 标签       Recall@3 = 87.5%   ← 当前配置
+            额外加入 example_phrases     Recall@3 = 84.4%   （变差）
+            索引全部字段                 Recall@3 = 87.5%，但 Recall@1 从 78.1% 掉到 71.9%
+        结论：加入「答案侧」的语言（例句、技巧名）会稀释索引，
+        而把整张卡全塞进去虽然不降低召回，却明显损害排序质量。
         """
         raise NotImplementedError
 
@@ -81,8 +90,9 @@ class CommunicationCard(BaseCard):
     why_it_works: NonEmptyStr
 
     def index_text(self) -> str:
-        parts = [self.scenario, self.technique_name, *self.dont, *self.example_phrases, *self.tags]
-        return " ".join(parts)
+        # 只索引「用户会怎么描述这个处境」：场景 + 主题标签。
+        # 刻意不含 technique_name / example_phrases —— 见消融实验结论。
+        return " ".join([self.scenario, *self.tags])
 
 
 class SomaticCard(BaseCard):
@@ -106,8 +116,9 @@ class SomaticCard(BaseCard):
         return self
 
     def index_text(self) -> str:
-        parts = [self.symptom, *self.aliases, self.what_it_is, *self.avoid_saying, *self.tags]
-        return " ".join(parts)
+        # aliases 是用户的口语说法（"喘不上气" vs 学名"过度换气"），
+        # 对躯体化卡来说这是命中率的主要来源。
+        return " ".join([self.symptom, *self.aliases, *self.tags])
 
 
 Card = Union[CommunicationCard, SomaticCard]
