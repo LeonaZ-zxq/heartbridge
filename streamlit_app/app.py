@@ -111,6 +111,17 @@ if go and transcript.strip():
         if result.risk.level == RiskLevel.ELEVATED:
             st.warning("这段话里有明显的痛苦信号。回复之后建议继续留意。", icon="⚠️")
 
+        # 安全检查只跑了一半时必须说出来。
+        # 以前 LLM 二级校验失败会静默返回「无风险」，用户看到的界面
+        # 和「两层都查过、确实没事」一模一样——一次网络故障就等于
+        # 悄悄关掉了整层安全检测。
+        if not result.risk.second_pass_ok:
+            st.warning(
+                "⚠️ 安全检查只跑了规则层——二级校验没调通（网络或额度问题）。"
+                "这**不等于**没有风险，只说明这次没查全。涉及安危的判断请你自己再看一遍。",
+                icon="🔌",
+            )
+
         if not result.options:
             # 「可能」两个字是个信号：说明这里在猜。
             # generator 现在把失败原因随返回值带出来了，如实说。

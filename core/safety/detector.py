@@ -25,7 +25,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import IntEnum
 
 from core.config import CONFIG, Config
@@ -83,6 +83,19 @@ CRISIS_RULES: list[Rule] = [
     _r("不想活", r"不想活|活不下去|不想再活|没法活|活着(太|好)?(累|没意思|没意义)", RiskLevel.CRISIS),
     _r("想死", r"想死|去死|死了算了|一了百了|解脱|不如死", RiskLevel.CRISIS, neg=True),
     _r("消失_永久", r"永远消失|从这个世界消失|人间蒸发|不存在了(比较)?好", RiskLevel.CRISIS),
+    # ---- 来世式表达：说的是「这辈子没救了」，一个死字都不含 ----
+    # 漏报案例：「下辈子会好的吧 我说不出话了」——现有 8 条规则一条都不沾边，
+    # 于是这句话一路走到生成器，拿回来一条「我记下来了」。
+    #
+    # 这和 ROADMAP 里记的准备性行为盲区是**同一类错误**：
+    # 词表覆盖的是「怎么用语言表达想死」，而这句话表达的是
+    # 「把希望寄到下一辈子」——被动自杀意念的标准表述之一。
+    #
+    # 收窄到绝望语义再匹配，不是见到「下辈子」就报：
+    # 「下辈子做只猫」「下辈子再见」这类日常用法不能命中。
+    _r("来世_寄望", r"(下辈子|下一辈子|来世|来生|下一世).{0,6}"
+                    r"(会好|好好的|别再|不想|不做人|不当人|不来了|投胎|重新来)"
+                    r"|这辈子.{0,6}(就这样|没救|完了|没指望|算了)", RiskLevel.CRISIS),
     # ---- 方法/计划（风险显著更高：有计划意味着从意念走向行动）----
     _r("方法_提及", r"割腕|割手|吞药|攒(了)?药|安眠药|农药|上吊|绳子|跳楼|跳下去|天台|楼顶|煤气|烧炭",
        RiskLevel.CRISIS),
@@ -159,6 +172,9 @@ class RiskAssessment:
     signals: list[str] = field(default_factory=list)
     stage: str = "rule"          # rule | llm
     rationale: str = ""
+    # 二级校验有没有真的跑成功。
+    # False 表示「这次只有规则层把过关」——不是「安全」，是**没查全**。
+    second_pass_ok: bool = True
 
     @property
     def is_crisis(self) -> bool:
@@ -221,7 +237,15 @@ def llm_scan(text: str, llm: LLMProvider) -> RiskAssessment:
     except LLMError as exc:
         # 关键的失败模式设计：LLM 挂了不能让整个安全层失效。
         # 降级为「规则层结论」而不是抛异常——安全层必须永远可用。
-        return RiskAssessment(RiskLevel.NONE, stage="llm", rationale=f"LLM 不可用，跳过二级: {exc}")
+        # 这里**不能**当成「安全」返回。
+        # 原来返回一个干净的 NONE，assess() 于是把它当没事放行——
+        # 一次静默的网络失败就等于整层安全检测被关掉，而用户完全看不到。
+        # 安全检查失败时唯一诚实的输出是「我没查成」，不是「没问题」。
+        return RiskAssessment(
+            RiskLevel.NONE, stage="llm",
+            rationale=f"LLM 不可用，跳过二级: {exc}",
+            second_pass_ok=False,
+        )
     mapping = {"none": RiskLevel.NONE, "elevated": RiskLevel.ELEVATED, "crisis": RiskLevel.CRISIS}
     level = mapping.get(str(data.get("level", "none")).lower(), RiskLevel.NONE)
     return RiskAssessment(level=level, stage="llm", rationale=str(data.get("reason", "")))
@@ -250,5 +274,13 @@ def assess(text: str, llm: LLMProvider | None = None, cfg: Config | None = None)
             signals=rule_result.signals + [f"llm:{llm_result.rationale}"],
             stage="llm",
             rationale=f"LLM 升级风险等级: {llm_result.rationale}",
+        )
+    # 二级没跑成 → 把这个事实带出去，让上层能如实告诉用户
+    # 「这次只有规则层过了一遍」。规则层判危机时不受影响（上面已提前返回）。
+    if not llm_result.second_pass_ok:
+        return replace(
+            rule_result,
+            second_pass_ok=False,
+            rationale=(rule_result.rationale + "｜" + llm_result.rationale).strip("｜"),
         )
     return rule_result

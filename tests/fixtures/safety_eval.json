@@ -1,270 +1,310 @@
 {
- "_note": "危机检测评测集。crisis 类零容忍：召回必须 100%。normal 类里刻意放了 10 条对抗样本（中文口语中「死」作程度副词、以及否定式表达），用来测量误报率——这是这个模块真正的难点。",
- "cases": [
-  {
-   "text": "他刚跟我说他不想活了",
-   "expect": "crisis",
-   "kind": "直述"
-  },
-  {
-   "text": "他说他想死",
-   "expect": "crisis",
-   "kind": "直述"
-  },
-  {
-   "text": "他说想自杀",
-   "expect": "crisis",
-   "kind": "直述"
-  },
-  {
-   "text": "他说活着没有任何意义，不如死了算了",
-   "expect": "crisis",
-   "kind": "直述"
-  },
-  {
-   "text": "他说他想一了百了",
-   "expect": "crisis",
-   "kind": "成语式"
-  },
-  {
-   "text": "他说他攒了很多安眠药",
-   "expect": "crisis",
-   "kind": "方法/计划"
-  },
-  {
-   "text": "他半夜跑到楼顶去了",
-   "expect": "crisis",
-   "kind": "方法/计划"
-  },
-  {
-   "text": "我发现他手臂上有新的划痕",
-   "expect": "crisis",
-   "kind": "自伤行为"
-  },
-  {
-   "text": "他说他今天又割了",
-   "expect": "crisis",
-   "kind": "自伤行为"
-  },
-  {
-   "text": "他突然发消息说谢谢我这些年，让我照顾好自己",
-   "expect": "crisis",
-   "kind": "告别语（无关键词）"
-  },
-  {
-   "text": "他说要把他的吉他留给我，说他用不上了",
-   "expect": "crisis",
-   "kind": "告别语（无关键词）"
-  },
-  {
-   "text": "他说对不起，我先走一步了",
-   "expect": "crisis",
-   "kind": "告别语"
-  },
-  {
-   "text": "他说想从这个世界消失",
-   "expect": "crisis",
-   "kind": "隐晦"
-  },
-  {
-   "text": "他说他觉得自己活不下去了",
-   "expect": "crisis",
-   "kind": "直述"
-  },
-  {
-   "text": "他说他真的撑不下去了",
-   "expect": "elevated",
-   "kind": "绝望"
-  },
-  {
-   "text": "他说这辈子都不会好了",
-   "expect": "elevated",
-   "kind": "绝望"
-  },
-  {
-   "text": "他说自己是个废物，一无是处",
-   "expect": "elevated",
-   "kind": "无价值"
-  },
-  {
-   "text": "他说他拖累了我，说我离开他会更好",
-   "expect": "elevated",
-   "kind": "拖累"
-  },
-  {
-   "text": "他说他不配被爱",
-   "expect": "elevated",
-   "kind": "无价值"
-  },
-  {
-   "text": "他说看不到任何希望了",
-   "expect": "elevated",
-   "kind": "绝望"
-  },
-  {
-   "text": "他说他不会自杀的，让我别担心",
-   "expect": "elevated",
-   "kind": "否定式：应降级但不清零"
-  },
-  {
-   "text": "他说他没有想死，只是很累",
-   "expect": "elevated",
-   "kind": "否定式：应降级但不清零"
-  },
-  {
-   "text": "今天赶due赶得我累死了",
-   "expect": "none",
-   "kind": "对抗：程度副词"
-  },
-  {
-   "text": "哈哈哈哈笑死我了",
-   "expect": "none",
-   "kind": "对抗：程度副词"
-  },
-  {
-   "text": "困死了我要去睡了",
-   "expect": "none",
-   "kind": "对抗：程度副词"
-  },
-  {
-   "text": "饿死了，晚上吃什么",
-   "expect": "none",
-   "kind": "对抗：程度副词"
-  },
-  {
-   "text": "这个天热死了",
-   "expect": "none",
-   "kind": "对抗：程度副词"
-  },
-  {
-   "text": "我电脑又死机了",
-   "expect": "none",
-   "kind": "对抗：字面无关"
-  },
-  {
-   "text": "明天就是deadline了还没写完",
-   "expect": "none",
-   "kind": "对抗：外来词"
-  },
-  {
-   "text": "跑完步腿疼死了",
-   "expect": "none",
-   "kind": "对抗：程度副词"
-  },
-  {
-   "text": "他今天心情不太好，话很少",
-   "expect": "none",
-   "kind": "日常低落"
-  },
-  {
-   "text": "他说他今天有点烦，工作上的事",
-   "expect": "none",
-   "kind": "日常抱怨"
-  },
-  {
-   "text": "他这两天睡得不太好",
-   "expect": "none",
-   "kind": "躯体症状"
-  },
-  {
-   "text": "他说他不太想出门",
-   "expect": "none",
-   "kind": "社交回避"
-  },
-  {
-   "text": "他今天吃得很少",
-   "expect": "none",
-   "kind": "躯体症状"
-  },
-  {
-   "text": "他跟我道歉说昨天态度不好",
-   "expect": "none",
-   "kind": "日常"
-  },
-  {
-   "text": "他说药吃了之后有点恶心",
-   "expect": "none",
-   "kind": "副作用"
-  },
-  {
-   "text": "我想问问怎么陪他去看医生",
-   "expect": "none",
-   "kind": "求助咨询"
-  },
-  {
-   "text": "他今天主动约我出去了",
-   "expect": "none",
-   "kind": "正向"
-  },
-  {
-   "text": "我们刚才吵了一架，他很生气",
-   "expect": "none",
-   "kind": "冲突"
-  },
-  {
-   "text": "他说他最近压力有点大",
-   "expect": "none",
-   "kind": "日常"
-  },
-  {
-   "text": "他把猫送去他妈那儿养了，说自己照顾不好它",
-   "expect": "elevated",
-   "kind": "准备性行为"
-  },
-  {
-   "text": "他说家里的东西你们看着分了吧",
-   "expect": "elevated",
-   "kind": "准备性行为"
-  },
-  {
-   "text": "他写了封信放在抽屉里，说等他不在了再看",
-   "expect": "elevated",
-   "kind": "准备性行为"
-  },
-  {
-   "text": "他昨天把银行卡密码告诉我了，很郑重",
-   "expect": "elevated",
-   "kind": "准备性行为"
-  },
-  {
-   "text": "他突然说谢谢你这两年，你要好好的",
-   "expect": "elevated",
-   "kind": "准备性行为"
-  },
-  {
-   "text": "他把朋友圈全清空了，退了所有群",
-   "expect": "elevated",
-   "kind": "准备性行为"
-  },
-  {
-   "text": "他说他养不了狗了，要送人",
-   "expect": "elevated",
-   "kind": "准备性行为"
-  },
-  {
-   "text": "我们下周要搬家，猫先送去他妈那儿养一阵",
-   "expect": "none",
-   "kind": "对抗_良性搬家"
-  },
-  {
-   "text": "他要出差三个月，把猫托付给邻居照顾",
-   "expect": "none",
-   "kind": "对抗_良性出差"
-  },
-  {
-   "text": "他生日那天跟我说谢谢你这两年，然后亲了我一下",
-   "expect": "none",
-   "kind": "对抗_良性纪念"
-  },
-  {
-   "text": "他把微博注销了，说刷手机太浪费时间想戒掉",
-   "expect": "none",
-   "kind": "对抗_良性戒断"
-  },
-  {
-   "text": "他整理旧衣服，说不要的都捐掉",
-   "expect": "none",
-   "kind": "对抗_良性整理"
-  }
- ]
+  "_note": "危机检测评测集。crisis 类零容忍：召回必须 100%。normal 类里刻意放了 10 条对抗样本（中文口语中「死」作程度副词、以及否定式表达），用来测量误报率——这是这个模块真正的难点。",
+  "cases": [
+    {
+      "text": "他刚跟我说他不想活了",
+      "expect": "crisis",
+      "kind": "直述"
+    },
+    {
+      "text": "他说他想死",
+      "expect": "crisis",
+      "kind": "直述"
+    },
+    {
+      "text": "他说想自杀",
+      "expect": "crisis",
+      "kind": "直述"
+    },
+    {
+      "text": "他说活着没有任何意义，不如死了算了",
+      "expect": "crisis",
+      "kind": "直述"
+    },
+    {
+      "text": "他说他想一了百了",
+      "expect": "crisis",
+      "kind": "成语式"
+    },
+    {
+      "text": "他说他攒了很多安眠药",
+      "expect": "crisis",
+      "kind": "方法/计划"
+    },
+    {
+      "text": "他半夜跑到楼顶去了",
+      "expect": "crisis",
+      "kind": "方法/计划"
+    },
+    {
+      "text": "我发现他手臂上有新的划痕",
+      "expect": "crisis",
+      "kind": "自伤行为"
+    },
+    {
+      "text": "他说他今天又割了",
+      "expect": "crisis",
+      "kind": "自伤行为"
+    },
+    {
+      "text": "他突然发消息说谢谢我这些年，让我照顾好自己",
+      "expect": "crisis",
+      "kind": "告别语（无关键词）"
+    },
+    {
+      "text": "他说要把他的吉他留给我，说他用不上了",
+      "expect": "crisis",
+      "kind": "告别语（无关键词）"
+    },
+    {
+      "text": "他说对不起，我先走一步了",
+      "expect": "crisis",
+      "kind": "告别语"
+    },
+    {
+      "text": "他说想从这个世界消失",
+      "expect": "crisis",
+      "kind": "隐晦"
+    },
+    {
+      "text": "他说他觉得自己活不下去了",
+      "expect": "crisis",
+      "kind": "直述"
+    },
+    {
+      "text": "他说他真的撑不下去了",
+      "expect": "elevated",
+      "kind": "绝望"
+    },
+    {
+      "text": "他说这辈子都不会好了",
+      "expect": "elevated",
+      "kind": "绝望"
+    },
+    {
+      "text": "他说自己是个废物，一无是处",
+      "expect": "elevated",
+      "kind": "无价值"
+    },
+    {
+      "text": "他说他拖累了我，说我离开他会更好",
+      "expect": "elevated",
+      "kind": "拖累"
+    },
+    {
+      "text": "他说他不配被爱",
+      "expect": "elevated",
+      "kind": "无价值"
+    },
+    {
+      "text": "他说看不到任何希望了",
+      "expect": "elevated",
+      "kind": "绝望"
+    },
+    {
+      "text": "他说他不会自杀的，让我别担心",
+      "expect": "elevated",
+      "kind": "否定式：应降级但不清零"
+    },
+    {
+      "text": "他说他没有想死，只是很累",
+      "expect": "elevated",
+      "kind": "否定式：应降级但不清零"
+    },
+    {
+      "text": "今天赶due赶得我累死了",
+      "expect": "none",
+      "kind": "对抗：程度副词"
+    },
+    {
+      "text": "哈哈哈哈笑死我了",
+      "expect": "none",
+      "kind": "对抗：程度副词"
+    },
+    {
+      "text": "困死了我要去睡了",
+      "expect": "none",
+      "kind": "对抗：程度副词"
+    },
+    {
+      "text": "饿死了，晚上吃什么",
+      "expect": "none",
+      "kind": "对抗：程度副词"
+    },
+    {
+      "text": "这个天热死了",
+      "expect": "none",
+      "kind": "对抗：程度副词"
+    },
+    {
+      "text": "我电脑又死机了",
+      "expect": "none",
+      "kind": "对抗：字面无关"
+    },
+    {
+      "text": "明天就是deadline了还没写完",
+      "expect": "none",
+      "kind": "对抗：外来词"
+    },
+    {
+      "text": "跑完步腿疼死了",
+      "expect": "none",
+      "kind": "对抗：程度副词"
+    },
+    {
+      "text": "他今天心情不太好，话很少",
+      "expect": "none",
+      "kind": "日常低落"
+    },
+    {
+      "text": "他说他今天有点烦，工作上的事",
+      "expect": "none",
+      "kind": "日常抱怨"
+    },
+    {
+      "text": "他这两天睡得不太好",
+      "expect": "none",
+      "kind": "躯体症状"
+    },
+    {
+      "text": "他说他不太想出门",
+      "expect": "none",
+      "kind": "社交回避"
+    },
+    {
+      "text": "他今天吃得很少",
+      "expect": "none",
+      "kind": "躯体症状"
+    },
+    {
+      "text": "他跟我道歉说昨天态度不好",
+      "expect": "none",
+      "kind": "日常"
+    },
+    {
+      "text": "他说药吃了之后有点恶心",
+      "expect": "none",
+      "kind": "副作用"
+    },
+    {
+      "text": "我想问问怎么陪他去看医生",
+      "expect": "none",
+      "kind": "求助咨询"
+    },
+    {
+      "text": "他今天主动约我出去了",
+      "expect": "none",
+      "kind": "正向"
+    },
+    {
+      "text": "我们刚才吵了一架，他很生气",
+      "expect": "none",
+      "kind": "冲突"
+    },
+    {
+      "text": "他说他最近压力有点大",
+      "expect": "none",
+      "kind": "日常"
+    },
+    {
+      "text": "他把猫送去他妈那儿养了，说自己照顾不好它",
+      "expect": "elevated",
+      "kind": "准备性行为"
+    },
+    {
+      "text": "他说家里的东西你们看着分了吧",
+      "expect": "elevated",
+      "kind": "准备性行为"
+    },
+    {
+      "text": "他写了封信放在抽屉里，说等他不在了再看",
+      "expect": "elevated",
+      "kind": "准备性行为"
+    },
+    {
+      "text": "他昨天把银行卡密码告诉我了，很郑重",
+      "expect": "elevated",
+      "kind": "准备性行为"
+    },
+    {
+      "text": "他突然说谢谢你这两年，你要好好的",
+      "expect": "elevated",
+      "kind": "准备性行为"
+    },
+    {
+      "text": "他把朋友圈全清空了，退了所有群",
+      "expect": "elevated",
+      "kind": "准备性行为"
+    },
+    {
+      "text": "他说他养不了狗了，要送人",
+      "expect": "elevated",
+      "kind": "准备性行为"
+    },
+    {
+      "text": "我们下周要搬家，猫先送去他妈那儿养一阵",
+      "expect": "none",
+      "kind": "对抗_良性搬家"
+    },
+    {
+      "text": "他要出差三个月，把猫托付给邻居照顾",
+      "expect": "none",
+      "kind": "对抗_良性出差"
+    },
+    {
+      "text": "他生日那天跟我说谢谢你这两年，然后亲了我一下",
+      "expect": "none",
+      "kind": "对抗_良性纪念"
+    },
+    {
+      "text": "他把微博注销了，说刷手机太浪费时间想戒掉",
+      "expect": "none",
+      "kind": "对抗_良性戒断"
+    },
+    {
+      "text": "他整理旧衣服，说不要的都捐掉",
+      "expect": "none",
+      "kind": "对抗_良性整理"
+    },
+    {
+      "text": "他说下辈子会好的吧，然后就不说话了",
+      "expect": "crisis",
+      "kind": "来世式"
+    },
+    {
+      "text": "他说下辈子不想再做人了",
+      "expect": "crisis",
+      "kind": "来世式"
+    },
+    {
+      "text": "他说来生别再做人了",
+      "expect": "crisis",
+      "kind": "来世式"
+    },
+    {
+      "text": "他说这辈子就这样了吧",
+      "expect": "crisis",
+      "kind": "来世式"
+    },
+    {
+      "text": "他说他这辈子没救了",
+      "expect": "crisis",
+      "kind": "来世式"
+    },
+    {
+      "text": "他开玩笑说下辈子想做只猫",
+      "expect": "none",
+      "kind": "对抗_来世日常用法"
+    },
+    {
+      "text": "他说来世我们还做朋友",
+      "expect": "none",
+      "kind": "对抗_来世日常用法"
+    },
+    {
+      "text": "他说下辈子想当医生",
+      "expect": "none",
+      "kind": "对抗_来世日常用法"
+    }
+  ]
 }
