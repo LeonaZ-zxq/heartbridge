@@ -53,9 +53,55 @@ def get_retriever(backend: str):
     return build_retriever(load_cards(CONFIG.cards_dir), backend=backend)
 
 
+def embeddings_available() -> bool:
+    """这个环境能不能真的算向量。
+
+    `find_spec` 只查模块存不存在、不真的 import，
+    所以走 BM25 那条路时不会付出加载 torch 的代价。
+    """
+    import importlib.util
+
+    return importlib.util.find_spec("sentence_transformers") is not None
+
+
 def backend_name() -> str:
-    """公开 demo 固定 BM25；本地可通过环境变量切 dense。"""
-    return CONFIG.retrieval_backend if not is_demo() else "bm25"
+    """选一个**当前环境真的跑得起来**的检索后端。
+
+    这里原来写的是 `CONFIG.retrieval_backend if not is_demo() else "bm25"`，
+    把「用哪个后端」挂在了 `is_demo()` 上。而 `is_demo()` 的定义是
+    「没有任何可用的模型通道」。于是有了一条没人预料到的因果链：
+
+        访问者填了自己的 key → has_llm() 为真 → 不再算 demo
+        → 后端切回配置里的 dense → 免费实例没装 sentence-transformers → 崩
+
+    但「有没有 key」决定的是**能不能生成回复**，
+    「有没有 embedding 模型」决定的是**能不能算向量**——
+    这两件事之间没有因果关系，是那个标志位把它们缝在了一起。
+    而且这个 bug 只在「部署到免费实例」且「访问者填了 key」时才出现，
+    本地永远复现不了：两个条件本地都不成立。
+
+    正确的做法是**能力探测**而不是模式推断：想要 dense，就去看 dense 跑不跑得起来。
+    同一份代码于是在本机走 dense、在免费实例自动退回 BM25，
+    与用户填不填 key 完全无关。
+    """
+    want = (CONFIG.retrieval_backend or "bm25").lower()
+    if want in ("dense", "hybrid") and not embeddings_available():
+        return "bm25"
+    return want
+
+
+def backend_note() -> str:
+    """如果实际后端不是配置想要的那个，说明为什么。空字符串表示没有退化。
+
+    退化必须说出来。一个「我们用了语义检索」的项目页面，
+    跑在一个实际用 BM25 的实例上而不作说明，就是在误导访问者。
+    """
+    want = (CONFIG.retrieval_backend or "bm25").lower()
+    if backend_name() == want:
+        return ""
+    return ("本实例没有安装 embedding 模型（免费额度装不下 torch），"
+            f"已从 `{want}` 自动退回 `bm25`。"
+            "留出集上 BM25 明显弱于 dense——改写式查询尤其吃亏，见 docs/EVALUATION.md。")
 
 
 # --------------------------------------------------------------------------- #

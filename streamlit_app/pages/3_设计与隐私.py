@@ -2,7 +2,8 @@
 from __future__ import annotations
 
 import streamlit as st
-from shared import api_key_sidebar, backend_name, crisis_sidebar, footer, get_cards, is_demo, page_setup
+from shared import (api_key_sidebar, backend_name, backend_note, crisis_sidebar,
+                    footer, get_cards, is_demo, page_setup)
 
 page_setup("设计与隐私", "🔒")
 api_key_sidebar()
@@ -13,11 +14,17 @@ st.title("🔒 这个系统是怎么设计的")
 cards = get_cards()
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("知识卡片", len(cards))
-c2.metric("危机检测召回率", "100%", help="41 条评测集，14 条危机样本全部命中")
-c3.metric("危机检测误报率", "0%", help="19 条普通消息，含 10 条中文「死」字惯用语对抗样本")
-c4.metric("检索 Recall@3", "76.7%", help="30 条独立撰写的留出集，dense 后端")
+c2.metric("危机检测召回率", "100%",
+          help="53 条评测集，14 条危机样本全部命中。作为 CI 发布门禁：漏一条则构建失败")
+c3.metric("危机检测误报率", "0%",
+          help="24 条普通消息，含中文「死」字惯用语等对抗样本")
+c4.metric("检索 Recall@3", "70.0%",
+          help="30 条改写式留出集查询，dense 后端，93 张卡；同一条件下 BM25 为 33.3%。"
+               "注意：该留出集已被用于后端选择与索引设计，因此这个数字适合用来做后端间比较，"
+               "不适合当作干净的泛化估计——见 docs/EVALUATION.md 第 4.4 节")
 
-st.caption(f"当前检索后端：`{backend_name()}`" + ("（公开 demo 固定用 BM25，免费实例装不下 embedding 模型）" if is_demo() else ""))
+st.caption(f"当前检索后端：`{backend_name()}`"
+           + (f"　—　{backend_note()}" if backend_note() else ""))
 
 st.divider()
 st.markdown("""

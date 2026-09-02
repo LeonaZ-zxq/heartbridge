@@ -48,3 +48,74 @@ def test_key_不落盘只进_session_state(monkeypatch):
     for bad in ["open(", "write_text", "to_json", "st.secrets["]:
         # key 常量所在的函数里不应出现落盘操作
         assert not any(bad in line and key_const in line for line in src.splitlines())
+
+
+# --------------------------------------------------------------------------- #
+# 后端选择必须由「环境能不能跑」决定，而不是由「用户填没填 key」决定
+# --------------------------------------------------------------------------- #
+# 这组测试来自一个只在生产出现、本地永远复现不了的故障：
+#
+#   backend_name() 原本写成 `CONFIG.retrieval_backend if not is_demo() else "bm25"`，
+#   而 is_demo() 的定义是「没有可用的模型通道」。于是：
+#     访问者在免费实例上填了自己的 key
+#       → has_llm() 为真 → 不再算 demo
+#       → 后端切回配置里的 dense
+#       → 免费实例没装 sentence-transformers → ModuleNotFoundError
+#
+# 两个触发条件本地都不成立（本地装了 embedding 模型、本地不需要填 key），
+# 所以这个 bug 只会在真实访问者身上出现。**这正是它必须有测试的原因。**
+
+
+def _want(monkeypatch, backend: str):
+    """把配置里想要的后端换成 backend。
+
+    Config 是 frozen dataclass，不能就地改字段，只能整个替换。
+    这不是麻烦，是刻意的：配置在运行期不可变，所以任何「当前用哪个后端」
+    的疑问都只有一个答案来源。
+    """
+    import dataclasses
+
+    import shared
+
+    monkeypatch.setattr(
+        shared, "CONFIG", dataclasses.replace(shared.CONFIG, retrieval_backend=backend)
+    )
+    return shared
+
+
+def test_环境跑不了_dense_时必须退回_bm25(monkeypatch):
+    shared = _want(monkeypatch, "dense")
+    monkeypatch.setattr(shared, "embeddings_available", lambda: False)
+    assert shared.backend_name() == "bm25"
+
+
+def test_hybrid_同样要退回(monkeypatch):
+    """hybrid 里含 dense，缺了模型一样跑不起来。"""
+    shared = _want(monkeypatch, "hybrid")
+    monkeypatch.setattr(shared, "embeddings_available", lambda: False)
+    assert shared.backend_name() == "bm25"
+
+
+def test_填了_key_不会把后端顶成跑不起来的那个(monkeypatch):
+    """原始故障的直接复现：有 key ≠ 有 embedding 模型。"""
+    shared = _want(monkeypatch, "dense")
+    monkeypatch.setattr(shared, "embeddings_available", lambda: False)
+    monkeypatch.setattr(shared, "has_llm", lambda: True)   # 访问者填了 key
+    assert shared.backend_name() == "bm25"
+
+
+def test_环境跑得了就用配置里那个(monkeypatch):
+    """退化必须是有条件的，不能变成永远 BM25。"""
+    shared = _want(monkeypatch, "dense")
+    monkeypatch.setattr(shared, "embeddings_available", lambda: True)
+    assert shared.backend_name() == "dense"
+
+
+def test_发生退化时界面必须说明(monkeypatch):
+    """一个自称用语义检索的页面，实际跑 BM25 却不作说明，就是在误导访问者。"""
+    shared = _want(monkeypatch, "dense")
+    monkeypatch.setattr(shared, "embeddings_available", lambda: False)
+    assert "bm25" in shared.backend_note().lower()
+
+    monkeypatch.setattr(shared, "embeddings_available", lambda: True)
+    assert shared.backend_note() == ""
