@@ -22,6 +22,33 @@ streamlit run streamlit_app/app.py     # web UI
 python scripts/advise.py --demo --text "..."   # CLI
 ```
 
+## Which parts need a model, and which do not
+
+This matters more than it sounds: when the reply page fails, it is easy to
+conclude that "the app is broken" when in fact only one of four surfaces
+depends on a live model.
+
+| Surface | Needs an LLM | Needs the embedding model |
+|---|---|---|
+| `app.py` — situational help (reply generation) | **yes** | yes, if backend is dense |
+| `pages/1_卡片库.py` — card library | no | yes, if backend is dense |
+| `pages/2_躯体化科普.py` — somatic guide | no | yes, if backend is dense |
+| `pages/3_设计与隐私.py` — design notes | no | no |
+| `scripts/ask.py` — retrieval from the CLI | **no** | yes, if backend is dense |
+| `pytest` | no — a deterministic mock stands in | no — tests pin BM25 |
+
+Two consequences worth planning around:
+
+1. **Retrieval can be verified without any API budget.** `scripts/ask.py`
+   exists for exactly this. Binding "is retrieval correct?" to "does the model
+   answer well?" means that when the quota runs out you cannot check either.
+2. **Free tiers are a hard constraint, not a tuning problem.** Gemini's free
+   tier allows 20 requests per day per model
+   (`GenerateRequestsPerDayPerProjectPerModel-FreeTier`). That is fewer than
+   one ingestion run over 26 files. Plan ingestion around the quota rather
+   than discovering it mid-batch — and note that timed-out requests still
+   count against it.
+
 ## Public demo (Streamlit Community Cloud)
 
 1. Push to GitHub.
@@ -51,8 +78,14 @@ Three reasons this is the right default rather than a limitation:
 The free tier cannot hold `torch` plus an embedding model in memory. Backend
 selection is a config value, and `shared.backend_name()` pins the deployed
 build to BM25 and states so on the design page. Held-out retrieval is
-correspondingly weaker there (36.7% vs 76.7%) — the page does not pretend
-otherwise.
+correspondingly weaker there — the page does not pretend otherwise.
+
+The exact gap is deliberately **not** hardcoded here. It moved once already:
+the 36.7% / 76.7% pair quoted in earlier drafts was measured on a 49-card
+knowledge base, and the base is now 93 cards. Numbers embedded in prose rot
+silently, and a stale number in a deployment doc is worse than no number,
+because it reads as current. `docs/EVALUATION.md` holds the measured table
+and is the one place that gets updated.
 
 ## Continuous integration
 

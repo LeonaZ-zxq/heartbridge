@@ -179,3 +179,116 @@ The judge answers "did this change make things obviously worse". The human blind
 ### 3.4 Crisis situations are excluded, on purpose
 
 Situations that trigger the crisis branch never reach generation, so scoring them as generation quality would be meaningless. The evaluation script detects and skips them, and reports that it did. One deliberate boundary case (`g20`, giving a pet away — plausibly farewell language, plausibly not) is included so this branch is actually exercised.
+
+---
+
+## 4. Second snapshot: 93 cards (2026-09-01)
+
+Everything above was measured on a 49-card knowledge base. Ingesting Chinese
+creator content added 44 communication cards (`lived_experience`), taking the
+base to 93. The numbers moved enough to be worth recording as a separate
+snapshot rather than overwriting the first — the analyses above are about the
+decisions made against *that* base, and rewriting their numbers would erase
+the fact that the base changed.
+
+| Backend | Dev R@1 | Dev R@3 | Dev MRR | Held-out R@1 | Held-out R@3 | Held-out MRR |
+|---|---|---|---|---|---|---|
+| BM25 | 81.2% | 84.4% | 0.828 | 30.0% | 33.3% | 0.311 |
+| **Dense** (bge-small-zh) | **87.5%** | **96.9%** | **0.917** | **60.0%** | **70.0%** | **0.644** |
+| Hybrid (RRF) | 84.4% | 96.9% | 0.891 | 33.3% | 56.7% | 0.428 |
+
+### 4.1 The dev-set leakage became measurable
+
+Section 2 asserted that BM25's 100% dev-set Recall@3 was "roughly all
+leakage" — `user_phrasings` had been authored after inspecting dev-set
+failures. That was an argument. Diluting the index turned it into evidence:
+
+| | 49 cards | 93 cards | Δ |
+|---|---|---|---|
+| BM25 dev R@3 | 100.0% | 84.4% | **−15.6pp** |
+| Dense dev R@3 | 96.9% | 96.9% | **0.0pp** |
+
+The 44 new cards' `user_phrasings` were written without looking at any
+evaluation set. Adding untuned candidates to the pool cost BM25 15.6 points
+on the dev set and cost dense nothing.
+
+> A score obtained through leakage decays when you add samples that were not
+> tuned for that set. A score obtained through capability does not.
+> **Dilution is a cheap, retrospective test for contamination** — it needs no
+> new annotation, only new documents.
+
+This also sharpens *why* BM25 was the leaked one: the leakage was lexical.
+`user_phrasings` put the dev queries' exact vocabulary into the index, which
+is precisely what a term-matching retriever rewards and what a semantic
+retriever is largely indifferent to.
+
+### 4.2 Fusion degraded further, for the predicted reason
+
+Held-out hybrid fell from 70.0% to 56.7%, and hybrid Recall@1 (33.3%) is now
+close to BM25 alone (30.0%) rather than to dense (60.0%). Section 2.3 argued
+that RRF's equal weighting lets a weak retriever drag the fused ranking down.
+As BM25 weakened in absolute terms, the drag got worse — the prediction held
+without any change to the fusion code.
+
+### 4.3 The held-out drop was a latent defect, not a regression
+
+Dense held-out Recall@3 fell 76.7% → 60.0% on adding the cards, then
+recovered to 70.0% after one change. `--show-failures` showed something
+unexpected: of the 12 failures, **only one involved a new card**. The rest
+were old-card-versus-old-card confusion.
+
+The real signal was that four somatic queries were being answered with
+communication cards. Comparing what actually gets embedded:
+
+```
+communication  comm_030   "他早上特别难受，说不出话，到了晚上又好一些" + 5 colloquial phrasings
+somatic        soma_001   "胸闷、胸痛、心悸 胸口闷 喘不上气 心跳得好快 … 惊恐发作 急性"
+```
+
+The query `他说心口像被石头压着，喘气费劲` shares meaning with the alias
+`喘不上气` — **the vocabulary was already right**. What differed was form:
+somatic index text is a list of bare noun phrases; communication index text
+is a full sentence with a subject, and so is the query.
+
+> This is not vocabulary mismatch. It is **register mismatch**: the same words,
+> packed into a different syntactic shape, land in a different region of the
+> embedding space.
+
+Fix: `SomaticCard.index_text()` now emits an additional `他说{alias}` variant
+for each alias. No data change, no model change, no backend change.
+
+- Held-out Recall@3 60.0% → 70.0%, failures 12 → 9
+- The three recovered queries are exactly three of the four somatic ones
+
+Of the 9 remaining failures: 8 are confusions among the original
+`comm_001`–`comm_030` (with `comm_029` and `comm_030` each appearing 3 times —
+textbook **hubness**, where a few vectors become nearest neighbours to many
+queries); 1 is a stale label, where the newly retrieved `comm_063` answers the
+query better than the annotated gold `comm_013`.
+
+> Growing the index did not introduce these errors. It enlarged the candidate
+> pool until pre-existing weaknesses stopped being survivable.
+> **Scaling one part of a system is a stress test for the rest of it.**
+
+### 4.4 The held-out set is now contaminated
+
+The register fix was designed *after* reading held-out failures, then
+validated *on* held-out. That is the same error as §2.1, for the third time:
+
+1. `user_phrasings` written from dev-set failures
+2. backend selected on the held-out set
+3. index design diagnosed and validated on the held-out set
+
+Consequences, stated so they are not quietly forgotten:
+
+- **70.0% is not a publishable retrieval score.** It is evidence that the
+  register-mismatch hypothesis was correct, and nothing more.
+- Two obvious repairs are **deliberately not being made yet**: re-labelling the
+  `comm_013`/`comm_063` query, and adding a dissociation alias so `soma_007`
+  is reachable. Both would be authored directly from held-out failures.
+- A third evaluation set — annotated without looking at any card, any failure
+  list, or any retrieval output — has moved from "nice to have" to blocking.
+  There is currently no clean set left to report a number on.
+
+> Once a set has been used to make a design decision, it is no longer an
+> evaluation set. It has become part of the training data.
