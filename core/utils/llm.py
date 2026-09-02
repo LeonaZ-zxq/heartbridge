@@ -15,7 +15,7 @@ import hashlib
 import json
 import re
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Protocol
 
@@ -50,28 +50,47 @@ class LLMProvider(Protocol):
 # --------------------------------------------------------------------------- #
 # 后端实现
 # --------------------------------------------------------------------------- #
+# 「一天用完了」的说法在各家错误文案里长这些样子。命中就是**今天别再试了**，
+# 退避重试只会把剩下的额度也烧掉。
+_DAILY_QUOTA_WORDS = ("per day", "perday", "daily", "per-day", "rpd", "requests per day")
+
+
+def _looks_like_daily_quota(text: str) -> bool:
+    low = text.lower()
+    return any(w in low for w in _DAILY_QUOTA_WORDS)
+
+
 @dataclass
-class OpenRouterProvider:
-    """OpenRouter：一个网关聚合了几十个模型，含免费额度模型。兼容 OpenAI 协议。"""
+class OpenAICompatProvider:
+    """任何讲 OpenAI /chat/completions 协议的服务。
+
+    ━━━ 为什么值得单独抽出来 ━━━
+
+    免费额度这件事上，「换一家」是最常用的应对手段，而绝大多数服务
+    （OpenRouter、Groq、Together、Cerebras、本地 vLLM/Ollama）说的是同一套协议。
+    把差异收敛成 base_url + 几个 header 之后，接一家新的只是加一个子类，
+    业务代码一行都不用动——这正是当初留 LLMProvider 这层接口的理由，
+    现在它兑现了一次。
+    """
 
     api_key: str
     model: str
     timeout_s: int = 60
-    name: str = "openrouter"
+    name: str = "openai-compat"
+    base_url: str = ""
+    key_hint: str = "API key"
+    extra_headers: dict = field(default_factory=dict)
 
     def complete(self, system: str, user: str, *, temperature: float = 0.3) -> str:
         import httpx
 
         if not self.api_key:
-            raise LLMError("OPENROUTER_API_KEY 未设置")
+            raise LLMError(f"{self.key_hint} 未设置")
+        headers = {"Authorization": f"Bearer {self.api_key}", **self.extra_headers}
         try:
             resp = httpx.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {self.api_key}",
-                    "HTTP-Referer": "https://github.com/heartbridge",
-                    "X-Title": "HeartBridge",
-                },
+                self.base_url,
+                headers=headers,
                 json={
                     "model": self.model,
                     "temperature": temperature,
@@ -83,14 +102,53 @@ class OpenRouterProvider:
                 timeout=self.timeout_s,
             )
         except Exception as exc:  # noqa: BLE001 - 网络异常统一包成 LLMError
-            raise LLMError(f"OpenRouter 请求失败: {exc}") from exc
+            raise LLMError(f"{self.name} 请求失败: {exc}") from exc
 
         if resp.status_code != 200:
-            raise LLMError(f"OpenRouter HTTP {resp.status_code}: {resp.text[:300]}")
+            detail = resp.text[:300]
+            # 和 Gemini 那边同一条规则：每日配额打光、key 失效、模型下线，
+            # 再试还是同样的结果，重试只是在制造噪音和消耗。
+            terminal = resp.status_code in (401, 403, 404) or (
+                resp.status_code == 429 and _looks_like_daily_quota(detail)
+            )
+            raise LLMError(
+                f"{self.name} HTTP {resp.status_code}: {detail}", retryable=not terminal
+            )
         try:
             return resp.json()["choices"][0]["message"]["content"]
         except (KeyError, IndexError, ValueError) as exc:
-            raise LLMError(f"OpenRouter 返回结构异常: {resp.text[:300]}") from exc
+            raise LLMError(f"{self.name} 返回结构异常: {resp.text[:300]}") from exc
+
+
+@dataclass
+class OpenRouterProvider(OpenAICompatProvider):
+    """OpenRouter：一个网关聚合了几十个模型，含 `:free` 后缀的免费模型。
+
+    注意免费档是**按账号**限的（社区口径：约 50 次/天，充值 10 美元后放宽到 1000 次/天），
+    不是按模型限的——所以在 OpenRouter 内部换模型并不会得到新的额度桶。
+    """
+
+    name: str = "openrouter"
+    base_url: str = "https://openrouter.ai/api/v1/chat/completions"
+    key_hint: str = "OPENROUTER_API_KEY"
+    extra_headers: dict = field(default_factory=lambda: {
+        "HTTP-Referer": "https://github.com/heartbridge",
+        "X-Title": "HeartBridge",
+    })
+
+
+@dataclass
+class GroqProvider(OpenAICompatProvider):
+    """Groq：免费档额度是这三家里最宽的一档（量级：30 RPM / 1000 RPD）。
+
+    对这个项目来说它是**默认应该先试的那一家**：一次求助 = 两次调用
+    （危机确认 + 生成），1000 次/天够连续演示一整天，
+    而 Gemini 免费档在新模型上是 20 次/天——四舍五入等于点十下就没了。
+    """
+
+    name: str = "groq"
+    base_url: str = "https://api.groq.com/openai/v1/chat/completions"
+    key_hint: str = "GROQ_API_KEY"
 
 
 @dataclass
@@ -324,6 +382,8 @@ def get_llm(cfg: Config | None = None) -> LLMProvider:
     provider = cfg.llm_provider.lower()
     if provider == "openrouter":
         return OpenRouterProvider(cfg.openrouter_key, cfg.openrouter_model, cfg.llm_timeout_s)
+    if provider == "groq":
+        return GroqProvider(cfg.groq_key, cfg.groq_model, cfg.llm_timeout_s)
     if provider == "gemini":
         return GeminiProvider(cfg.gemini_key, cfg.gemini_model, cfg.llm_timeout_s)
     if provider == "mock":

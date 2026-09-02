@@ -24,7 +24,7 @@ from core.knowledge.schema import load_cards  # noqa: E402
 from core.profile.models import PartnerProfile  # noqa: E402
 from core.safety.templates import DISCLAIMER, RESOURCES_AU, RESOURCES_CN  # noqa: E402
 from core.utils.llm import (  # noqa: E402
-    GeminiProvider, MockProvider, OpenRouterProvider, get_llm,
+    GeminiProvider, GroqProvider, MockProvider, OpenRouterProvider, get_llm,
 )
 
 DEMO_OPTIONS = {
@@ -131,7 +131,7 @@ def has_llm() -> bool:
     _, k = user_key()
     return bool(k) or (
         CONFIG.llm_provider.lower() != "mock"
-        and bool(CONFIG.openrouter_key or CONFIG.gemini_key)
+        and bool(CONFIG.openrouter_key or CONFIG.gemini_key or CONFIG.groq_key)
     )
 
 
@@ -155,10 +155,14 @@ def api_key_sidebar() -> None:
                 "不填也能用：检索、危机检测、卡片库、躯体化速查都是真的。"
                 "只有「生成回复」需要模型。"
             )
-            prov = st.selectbox("供应商", ["openrouter", "gemini"], key="_prov_pick")
+            prov = st.selectbox(
+                "供应商", ["groq", "gemini", "openrouter"], key="_prov_pick",
+                help="免费额度差得很远：Groq 量级 1000 次/天，Gemini 2.5-flash 约 1500 次/天，"
+                     "OpenRouter 免费档约 50 次/天。一次求助要打两次调用。",
+            )
             key = st.text_input(
                 "API key", type="password", key="_key_input",
-                placeholder="sk-or-v1-…" if prov == "openrouter" else "AIza…",
+                placeholder={"groq": "gsk_…", "gemini": "AIza…"}.get(prov, "sk-or-v1-…"),
                 help="只存在这一次浏览器会话里，不落盘、不进日志。关掉标签页就没了。",
             )
             if st.button("连接", type="primary", use_container_width=True, disabled=not key):
@@ -166,8 +170,9 @@ def api_key_sidebar() -> None:
                 st.session_state[_PROVIDER_SS] = prov
                 st.rerun()
             st.caption(
-                "[OpenRouter 免费 key](https://openrouter.ai/keys) · "
-                "[Gemini 免费 key](https://aistudio.google.com/apikey)"
+                "[Groq 免费 key](https://console.groq.com/keys) · "
+                "[Gemini 免费 key](https://aistudio.google.com/apikey) · "
+                "[OpenRouter](https://openrouter.ai/keys)"
             )
         st.divider()
 
@@ -178,6 +183,8 @@ def get_llm_for_ui():
         # 访问者自带的 key 优先于服务端配置
         if prov == "gemini":
             return GeminiProvider(key, CONFIG.gemini_model, CONFIG.llm_timeout_s)
+        if prov == "groq":
+            return GroqProvider(key, CONFIG.groq_model, CONFIG.llm_timeout_s)
         return OpenRouterProvider(key, CONFIG.openrouter_model, CONFIG.llm_timeout_s)
     if has_llm():
         return get_llm(CONFIG)

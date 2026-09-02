@@ -175,3 +175,64 @@ def test_导入坏_json_不会让整页崩掉(monkeypatch):
     monkeypatch.setattr(shared.st, "session_state", ss, raising=False)
     assert shared.custom_profile() is None
     assert shared._PROFILE_SS not in ss, "坏档案应当被清掉，否则每次进页面都再炸一次"
+
+
+# --------------------------------------------------------------------------- #
+# 供应商可替换性
+#
+# 免费额度这件事上「换一家」是最常用的应对手段，而 OpenRouter / Groq /
+# 本地 vLLM 说的是同一套 OpenAI 协议。当初留 LLMProvider 这层接口，
+# 兑现的就是这一刻：接一家新的只加一个子类，业务代码一行不动。
+# --------------------------------------------------------------------------- #
+import dataclasses as _dc
+
+import pytest as _pytest
+
+from core.config import Config as _Config
+from core.utils.llm import (
+    GroqProvider, LLMError, OpenRouterProvider, _looks_like_daily_quota, get_llm,
+)
+
+
+def test_groq_是一个可以直接选的_provider():
+    cfg = _dc.replace(_Config(), llm_provider="groq", groq_key="gsk_x", groq_model="m")
+    llm = get_llm(cfg)
+    assert isinstance(llm, GroqProvider) and llm.name == "groq"
+
+
+def test_两家共用同一套协议只在_url_上有区别():
+    a = OpenRouterProvider("k", "m")
+    b = GroqProvider("k", "m")
+    assert type(a).complete is type(b).complete, "协议实现必须只有一份"
+    assert a.base_url != b.base_url
+    assert "groq.com" in b.base_url
+
+
+def test_没有_key_时报的是这一家的_key_名字():
+    with _pytest.raises(LLMError, match="GROQ_API_KEY"):
+        GroqProvider("", "m").complete("s", "u")
+
+
+@_pytest.mark.parametrize("detail", [
+    "You exceeded your quota: requests per day",
+    "RPD limit reached",
+    "free-models-per-day limit",
+])
+def test_每日配额打光要判成不可重试(detail):
+    """按分钟限速该退避重试，按天限额不该——今天再试也是同样的结果，
+    重试只是把剩下的额度也烧掉。两者的文案长得很像，区别只在一个词。"""
+    assert _looks_like_daily_quota(detail)
+
+
+def test_每分钟限速不能被误判成每日配额():
+    assert not _looks_like_daily_quota("Rate limit exceeded: 30 requests per minute")
+
+
+def test_默认_gemini_模型不是额度最小的那个(monkeypatch):
+    """20 次/天的预览模型做默认值，等于默认状态下点十下就没了。
+    额度桶是 PerModel 的，换个模型名就是另一个桶。
+
+    要先清掉环境变量：本机 .env 里可能配着别的模型，
+    否则这条测的是「你现在配了什么」而不是「默认值是什么」。"""
+    monkeypatch.delenv("HB_GEMINI_MODEL", raising=False)
+    assert _Config().gemini_model == "gemini-2.5-flash"

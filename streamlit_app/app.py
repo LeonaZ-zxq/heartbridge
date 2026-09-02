@@ -133,7 +133,21 @@ if go and transcript.strip():
                 elif "超时" in err or "timeout" in err.lower():
                     st.caption("请求超时。可以再试一次；长文本比短文本更容易撞上超时。")
             else:
-                st.warning("没有生成回复选项。下面是检索到的依据卡片。", icon="🧪")
+                # 走到这里说明 options 是一个**普通的空 list**，而不是 _Failed。
+                # 但 generate_options 的每一条返空路径都会带上原因和 kind——
+                # 也就是说，正在跑的代码不是仓库里这份代码。
+                # 最常见的原因：Streamlit 只会在每次 rerun 时重新执行主脚本，
+                # 已经 import 进 sys.modules 的模块不会重新加载。
+                # 于是「app.py 的新文案 + core 里的旧逻辑」可以同时出现在一个进程里，
+                # 看起来像代码没生效，实际是进程没重启。
+                st.warning("没有生成回复选项，而且这一次连原因都没带出来。", icon="🧪")
+                st.caption(
+                    f"诊断：options 的类型是 `{type(result.options).__name__}`，不携带失败原因。"
+                    "当前代码的每一条返空路径都会带原因，所以这说明进程里的 "
+                    "`core.engine.generator` 还是旧版本——改了被 import 的模块必须**重启进程**，"
+                    "重跑脚本不够。本地：Ctrl+C 后重新 `streamlit run`；"
+                    "线上：Manage app → Reboot app。"
+                )
 
         for i, opt in enumerate(result.options, 1):
             with st.container(border=True):

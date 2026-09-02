@@ -53,15 +53,29 @@ class Config:
     transcripts_dir: Path = ROOT / "data" / "transcripts"
 
     # ---------- LLM ----------
-    # provider: mock | openrouter | gemini
+    # provider: mock | groq | gemini | openrouter
     # mock 是刻意设计的：测试和 CI 不该依赖网络和 API key，也不该花钱。
+    #
+    # ━━━ 免费额度不是一个数字，是一个「按什么维度算」的问题 ━━━
+    # Gemini 的 429 里写着配额名：GenerateRequestsPerDayPerProjectPerModel。
+    # 关键在 **PerModel**——额度桶是按模型分的。所以同样是免费档，
+    # 挑哪个模型的差别可以是 75 倍，而这跟「模型好不好」完全无关：
+    #     gemini-3.6-flash     20 次/天    ← 新模型，预览档，点十下就没了
+    #     gemini-2.5-flash     ~1500 次/天 ← 同一个 key，换个模型名就有了
+    # 这个项目一次求助要打两次（危机确认 + 生成），20 次/天 = 演示十次。
     llm_provider: str = field(default_factory=lambda: _env("HB_LLM_PROVIDER", "mock"))
     openrouter_key: str = field(default_factory=lambda: _env("OPENROUTER_API_KEY", ""))
     openrouter_model: str = field(
         default_factory=lambda: _env("HB_OPENROUTER_MODEL", "meta-llama/llama-3.3-70b-instruct:free")
     )
     gemini_key: str = field(default_factory=lambda: _env("GEMINI_API_KEY", ""))
-    gemini_model: str = field(default_factory=lambda: _env("HB_GEMINI_MODEL", "gemini-3.6-flash"))
+    # 默认挑 2.5-flash 而不是最新的那个，就是为了上面那 75 倍。
+    gemini_model: str = field(default_factory=lambda: _env("HB_GEMINI_MODEL", "gemini-2.5-flash"))
+    # Groq：免费档最宽的一家（量级 30 RPM / 1000 RPD），讲 OpenAI 协议。
+    groq_key: str = field(default_factory=lambda: _env("GROQ_API_KEY", ""))
+    groq_model: str = field(
+        default_factory=lambda: _env("HB_GROQ_MODEL", "openai/gpt-oss-120b")
+    )
     # 60s 是按"聊天式一问一答"定的，对蒸馏请求不够：近千字中文进去、
     # 一个 JSON 卡片数组出来，flash 开着思考时常态就在 60s 上下摆动。
     # 症状极具误导性——预检的 {"ok":true} 又小又快，永远能过，
