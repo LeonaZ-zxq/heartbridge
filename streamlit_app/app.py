@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import streamlit as st
 from shared import (
-    api_key_sidebar, backend_name, crisis_sidebar, demo_banner, demo_profile,
-    footer, get_llm_for_ui, get_retriever, is_demo, page_setup,
+    active_profile, api_key_sidebar, backend_name, crisis_sidebar, demo_banner,
+    footer, get_llm_for_ui, get_retriever, is_demo, page_setup, profile_is_custom,
 )
 
 from core.engine.pipeline import advise
@@ -52,8 +52,14 @@ with col_l:
     situation = st.text_input(
         "补充说明（可选）", placeholder="例如：我在墨尔本，他在国内，现在只能打字"
     )
-    use_profile = st.toggle("注入伴侣档案（演示数据）", value=True,
-                            help="真实档案只存在本机 SQLite，永不上传。这里用的是虚构示例。")
+    _custom = profile_is_custom()
+    use_profile = st.toggle(
+        "注入伴侣档案" + ("" if _custom else "（演示数据）"),
+        value=True,
+        help=("正在用你自己填的档案。" if _custom else
+              "现在用的是虚构示例（小鱼）。去「伴侣档案」那一页填成你的情况，"
+              "建议会明显更贴。档案只留在本次会话，不落盘。"),
+    )
     go = st.button("给我建议", type="primary", use_container_width=True, key="go")
 
 if go and transcript.strip():
@@ -62,7 +68,7 @@ if go and transcript.strip():
             transcript,
             get_retriever(backend_name()),
             get_llm_for_ui(),
-            demo_profile() if use_profile else None,
+            active_profile() if use_profile else None,
             situation=situation,
         )
 

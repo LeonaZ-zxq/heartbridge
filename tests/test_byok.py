@@ -25,7 +25,7 @@ def _run(page: str) -> AppTest:
 
 def test_每一页都有_key_输入口():
     """任何一页都可能是访问者进来的第一页。"""
-    for page in ["app.py", "pages/1_卡片库.py", "pages/2_躯体化科普.py", "pages/3_设计与隐私.py"]:
+    for page in ["app.py", "pages/1_卡片库.py", "pages/2_躯体化科普.py", "pages/3_设计与隐私.py", "pages/4_伴侣档案.py"]:
         at = _run(page)
         labels = [w.label for w in at.sidebar.text_input]
         assert any("API key" in str(x) for x in labels), page
@@ -119,3 +119,59 @@ def test_发生退化时界面必须说明(monkeypatch):
 
     monkeypatch.setattr(shared, "embeddings_available", lambda: True)
     assert shared.backend_note() == ""
+
+
+# --------------------------------------------------------------------------- #
+# 伴侣档案：可以编辑，且**永不落盘**
+# --------------------------------------------------------------------------- #
+# core/profile/crud.py 有 SQLite 存储，但网页这条路刻意不用它：
+# 线上是所有访问者共用的一个进程，把第三方的精神健康信息写进服务器磁盘
+# 既是隐私问题也是串号问题。下面这条测试钉住的就是「没有那条写盘路径」。
+
+def test_网页档案只进会话内存_不碰_sqlite(monkeypatch):
+    """保存档案不得触发任何 SQLite 写入。"""
+    import core.profile.crud as crud
+    import shared
+    from core.profile.models import PartnerProfile
+
+    called = []
+    for name in [n for n in dir(crud) if n.startswith(("save", "upsert", "insert", "delete"))]:
+        monkeypatch.setattr(crud, name, lambda *a, **k: called.append(name), raising=False)
+
+    ss = {}
+    monkeypatch.setattr(shared.st, "session_state", ss, raising=False)
+    shared.save_profile(PartnerProfile(nickname="测试"))
+
+    assert called == [], f"档案保存不应触碰持久化层，却调用了 {called}"
+    assert ss, "档案应当写进 session_state"
+
+
+def test_没填过档案时退回演示档案(monkeypatch):
+    import shared
+
+    monkeypatch.setattr(shared.st, "session_state", {}, raising=False)
+    assert shared.custom_profile() is None
+    assert shared.profile_is_custom() is False
+    assert shared.active_profile().nickname == shared.demo_profile().nickname
+
+
+def test_填过之后以自己那份为准(monkeypatch):
+    import shared
+    from core.profile.models import PartnerProfile
+
+    monkeypatch.setattr(shared.st, "session_state", {}, raising=False)
+    shared.save_profile(PartnerProfile(nickname="阿星", landmines=["不要提去年"]))
+
+    assert shared.profile_is_custom() is True
+    assert shared.active_profile().nickname == "阿星"
+    assert "不要提去年" in shared.active_profile().to_prompt_block()
+
+
+def test_导入坏_json_不会让整页崩掉(monkeypatch):
+    """使用者会导入乱七八糟的文件。坏数据要被丢掉，不是抛异常。"""
+    import shared
+
+    ss = {shared._PROFILE_SS: {"relationship_years": "不是数字"}}
+    monkeypatch.setattr(shared.st, "session_state", ss, raising=False)
+    assert shared.custom_profile() is None
+    assert shared._PROFILE_SS not in ss, "坏档案应当被清掉，否则每次进页面都再炸一次"

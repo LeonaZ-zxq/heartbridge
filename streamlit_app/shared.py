@@ -187,6 +187,51 @@ def get_llm_for_ui():
     return llm
 
 
+_PROFILE_SS = "hb_partner_profile"
+
+# --------------------------------------------------------------------------- #
+# 伴侣档案：只活在这一次会话里
+# --------------------------------------------------------------------------- #
+# core/profile/crud.py 有完整的 SQLite 存储，但**刻意不在网页里用它**。
+# 线上是一个所有访问者共用的进程：把访问者填的档案写进服务器磁盘，
+# 等于把第三方的精神健康信息持久化在公网主机上，而且同一个库会在访问者之间串。
+# SQLite 那条路是给本机 CLI 用的。
+#
+# 网页这条路只用 session_state（这一个浏览器会话的服务端内存），
+# 刷新即消失、永不落盘，再配导出/导入 JSON 让使用者自己保管文件。
+# 这样「档案不出本机」就不是设计页上的一句承诺，而是**代码里根本没有那条写盘路径**。
+
+
+def custom_profile() -> PartnerProfile | None:
+    """使用者自己填的档案。没填过返回 None。"""
+    raw = st.session_state.get(_PROFILE_SS)
+    if not raw:
+        return None
+    try:
+        return PartnerProfile.model_validate(raw)
+    except Exception:  # noqa: BLE001
+        # 导入了格式不对的 JSON 不该让整页崩掉
+        st.session_state.pop(_PROFILE_SS, None)
+        return None
+
+
+def save_profile(profile: PartnerProfile) -> None:
+    st.session_state[_PROFILE_SS] = profile.model_dump(mode="json")
+
+
+def clear_profile() -> None:
+    st.session_state.pop(_PROFILE_SS, None)
+
+
+def active_profile() -> PartnerProfile:
+    """实际会被注入 prompt 的那一份：自己填的优先，否则用演示档案。"""
+    return custom_profile() or demo_profile()
+
+
+def profile_is_custom() -> bool:
+    return custom_profile() is not None
+
+
 def demo_profile() -> PartnerProfile:
     """演示用的**假**档案。真实档案只存在本机 SQLite，永不上云。"""
     data = json.loads((ROOT / "examples/sample_profile.json").read_text(encoding="utf-8"))

@@ -22,6 +22,7 @@ PAGES = [
     str(ROOT / "streamlit_app/pages/1_卡片库.py"),
     str(ROOT / "streamlit_app/pages/2_躯体化科普.py"),
     str(ROOT / "streamlit_app/pages/3_设计与隐私.py"),
+    str(ROOT / "streamlit_app/pages/4_伴侣档案.py"),
 ]
 TIMEOUT = 60
 
