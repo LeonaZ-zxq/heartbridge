@@ -32,11 +32,18 @@ class _Failed(list):
     刻意做成 list 的子类：所有 `if not options` / `for o in options` 的调用点
     都不需要改，但想知道原因的地方可以读 `.error`。
     在「不破坏现有契约」和「不丢失信息」之间，这是成本最低的一条路。
+
+    `kind` 把两种完全不同的空结果分开：
+      - "llm"        ：模型根本没答（网络、配额、超时）
+      - "validation" ：模型答了，但答出来的东西一条都不能用
+    这两种的处置办法完全相反（换 key / 等额度 vs. 改 prompt），
+    UI 混着说就又回到了「**可能**是模型调用失败」那种猜测式报错。
     """
 
-    def __init__(self, items, error: str = ""):
+    def __init__(self, items, error: str = "", kind: str = "llm"):
         super().__init__(items)
         self.error = error
+        self.kind = kind
 
 
 SYSTEM_PROMPT = """你在帮助一位抑郁症患者的伴侣，想出「此刻可以怎么回复」。
@@ -172,20 +179,60 @@ def build_user_prompt(
     return "\n\n".join(parts)
 
 
-def _validate(raw: object, allowed_ids: set[str], said: str = "") -> list[ReplyOption]:
+def _describe_raw(raw: object) -> str:
+    """模型到底返回了什么形状。
+
+    字段名对不上（把 text 写成 reply、把 options 写成「选项」）时，
+    这是唯一能指出问题的信息。少了它，「模型答了但没一条能用」
+    就只能靠猜。
+    """
+    if isinstance(raw, dict):
+        keys = "、".join(repr(k) for k in list(raw)[:8])
+        inner = raw.get("options")
+        if isinstance(inner, list):
+            return f"顶层是对象（键：{keys}），options 是长度 {len(inner)} 的数组"
+        return f"顶层是对象（键：{keys}），但里面没有名叫 options 的数组"
+    if isinstance(raw, list):
+        return f"顶层直接是长度 {len(raw)} 的数组"
+    return f"顶层是 {type(raw).__name__}，既不是对象也不是数组"
+
+
+def _validate(
+    raw: object,
+    allowed_ids: set[str],
+    said: str = "",
+    drops: list[str] | None = None,
+) -> list[ReplyOption]:
     """校验模型输出。
 
     面试点：LLM 的输出是**不可信输入**，要像处理用户提交的表单一样校验。
     这里做三件事：结构校验、引用校验、数量截断。
+
+    `drops` 是可选的收集器：每丢掉一条就写清**为什么**丢。
+    校验本身没问题，有问题的是「丢完了不说丢的原因」——
+    上层于是只能编一个听起来合理的解释给用户看。
+    这和 `_Failed` 修的是同一个病，只是低了一层。
     """
+    def note(msg: str) -> None:
+        if drops is not None:
+            drops.append(msg)
+
     options: list[ReplyOption] = []
     items = raw.get("options") if isinstance(raw, dict) else raw
-    for item in items if isinstance(items, list) else []:
+    if not isinstance(items, list):
+        note("返回里找不到 options 数组")
+        return []
+    if not items:
+        note("options 是空数组——模型自己交了白卷")
+    for i, item in enumerate(items, 1):
         if not isinstance(item, dict):
+            note(f"第 {i} 条不是对象，是 {type(item).__name__}")
             continue
         text = str(item.get("text", "")).strip()
         why = str(item.get("why", "")).strip()
         if not text or not why:
+            missing = "text" if not text else "why"
+            note(f"第 {i} 条缺 {missing}；它实际带的字段是 {list(item)}")
             continue  # 缺 why 的选项直接丢：没有解释就退化成了话术抄写
         cid = str(item.get("card_id", "")).strip()
         anchor = str(item.get("anchor", "")).strip()
@@ -205,6 +252,14 @@ def _validate(raw: object, allowed_ids: set[str], said: str = "") -> list[ReplyO
     return options[:3]
 
 
+_REPAIR_HINT = """
+
+## 上一次的返回不能用
+你刚才那次输出没有一条能用，原因：{why}
+请重发一次，键名一个字都不能改，不要 markdown 围栏，不要任何解释文字：
+{{"options":[{{"text":"要发出去的话","why":"为什么有效","anchor":"从他消息里原样摘的词","card_id":"comm_001","style":"共情"}}]}}"""
+
+
 def generate_options(
     llm: LLMProvider,
     situation: str,
@@ -217,19 +272,47 @@ def generate_options(
 ) -> list[ReplyOption]:
     allowed = {h.id for h in hits}
     said = " ".join([situation, *(t.text for t in turns)])
+    base_prompt = build_user_prompt(situation, turns, hits, profile)
+
+    def ask(prompt: str):
+        # temperature 0.7：要多样性，三个选项应该真的不一样
+        return complete_json(llm, SYSTEM_PROMPT, prompt, temperature=0.7)
+
     try:
-        raw = complete_json(
-            llm, SYSTEM_PROMPT, build_user_prompt(situation, turns, hits, profile),
-            temperature=0.7,  # 要多样性：三个选项应该真的不一样
-        )
+        raw = complete_json(llm, SYSTEM_PROMPT, base_prompt, temperature=0.7)
     except LLMError as exc:
         # 以前这里是 `return []`，于是「模型挂了」和「模型答了但全被校验刷掉」
         # 产出一模一样的空列表，UI 只能写「**可能**是模型调用失败」。
         # 这和摄取管道里那个「转写成功却零产出」是同一类失败：
         # 静默降级把两种完全不同的原因压成了同一个观测结果。
         # 把异常挂在返回值上，让上层能如实说出发生了什么。
-        return _Failed([], str(exc))
-    options = _validate(raw, allowed, said)
+        return _Failed([], str(exc), kind="llm")
+
+    drops: list[str] = []
+    options = _validate(raw, allowed, said, drops)
+
+    if not options:
+        # 走到这里意味着：模型答了，JSON 也解析出来了，但结构不对
+        # （键名改了、options 是空数组、每条都缺 why）。
+        # 这类失败重问一次通常就修好了，前提是**把它上次错在哪原样告诉它**——
+        # 比调 temperature 或者换个说法重写 prompt 都有效。
+        # 注意只重问这一次：免费额度是按天算的，无限重试是在烧配额。
+        detail = "；".join(drops) or "没有给出任何选项"
+        try:
+            raw2 = ask(base_prompt + _REPAIR_HINT.format(why=detail))
+        except LLMError as exc:
+            return _Failed(
+                [], f"第一次返回不可用（{detail}），重问时模型调用失败：{exc}", kind="llm"
+            )
+        drops2: list[str] = []
+        options = _validate(raw2, allowed, said, drops2)
+        if not options:
+            return _Failed(
+                [],
+                f"第一次：{_describe_raw(raw)}｜{detail}\n"
+                f"重问后：{_describe_raw(raw2)}｜{'；'.join(drops2) or '仍然没有可用选项'}",
+                kind="validation",
+            )
     if drop_generic:
         # 同样的兜底哲学：全部不合格时宁可带标记给出，也不给空结果。
         options = [o for o in options if o.specific] or options

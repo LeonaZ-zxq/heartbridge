@@ -115,15 +115,25 @@ if go and transcript.strip():
             # 「可能」两个字是个信号：说明这里在猜。
             # generator 现在把失败原因随返回值带出来了，如实说。
             err = getattr(result.options, "error", "")
-            if err:
+            kind = getattr(result.options, "kind", "")
+            if kind == "validation":
+                # 这里以前写的是「引用无效或过于笼统」——那是猜的，而且是错的：
+                # 引用校验和套话校验都带 `or options` 兜底，永远不可能把列表清空。
+                # 真正会清空的只有结构校验。照着错误的原因去修，只会越修越远。
+                st.warning("模型答了，JSON 也解析出来了，但没有一条选项能用——"
+                           "重问一次之后仍然不行。下面是它两次到底返回了什么。", icon="🧪")
+                st.code(err)
+                st.caption("常见原因：模型改了键名（把 text 写成 reply、把 options 写成中文键）、"
+                           "返回了空的 options 数组、或者每条都没写 why。"
+                           "换一个更会守格式的模型通常就好了。")
+            elif err:
                 st.error(f"模型调用失败，没有生成回复选项：\n\n`{err}`", icon="🔌")
                 if "429" in err or "quota" in err.lower():
                     st.caption("免费额度用完了。等额度重置，或在侧边栏换一个 key。")
                 elif "超时" in err or "timeout" in err.lower():
                     st.caption("请求超时。可以再试一次；长文本比短文本更容易撞上超时。")
             else:
-                st.warning("模型返回了内容，但所有选项都没通过校验（引用无效或过于笼统），"
-                           "因此都被丢弃了。下面是检索到的依据卡片。", icon="🧪")
+                st.warning("没有生成回复选项。下面是检索到的依据卡片。", icon="🧪")
 
         for i, opt in enumerate(result.options, 1):
             with st.container(border=True):

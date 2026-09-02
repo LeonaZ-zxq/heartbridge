@@ -81,6 +81,77 @@ def test_llm_failure_returns_empty_not_crash(cards, retriever):
 
 
 # --------------------------------------------------------------------------- #
+# 空结果必须说出真实原因
+#
+# 界面上曾经写着「所有选项都没通过校验（引用无效或过于笼统）」。
+# 那句话是猜的，而且是错的：引用校验和套话校验都带 `or options` 兜底，
+# 结构上不可能把列表清空。会清空的只有结构校验（键名对不上、options 空数组）。
+# 拿一个错误的原因去排查，比没有原因更费时间。
+# --------------------------------------------------------------------------- #
+class _Scripted:
+    """按顺序返回预设文本的假模型，用来测「第一次不行、重问一次」。"""
+
+    name = "scripted"
+
+    def __init__(self, *replies):
+        self.replies = list(replies)
+        self.calls = []
+
+    def complete(self, system, user, *, temperature=0.3):
+        self.calls.append(user)
+        return self.replies[min(len(self.calls) - 1, len(self.replies) - 1)]
+
+
+def test_结构不对时会带着原因重问一次并且能救回来(cards, retriever):
+    hits = retriever.search("他说自己不配被爱", k=3)
+    bad = json.dumps({"回复": [{"reply": "键名全错", "reason": "所以没法用"}]}, ensure_ascii=False)
+    good = json.dumps({"options": [
+        {"text": "救回来了", "why": "机制说明", "card_id": hits[0].id}
+    ]}, ensure_ascii=False)
+    llm = _Scripted(bad, good)
+
+    opts = generate_options(llm, "", [], hits)
+
+    assert [o.text for o in opts] == ["救回来了"]
+    assert len(llm.calls) == 2, "结构性失败应该正好重问一次，不能不问，也不能无限重试"
+    assert "上一次的返回不能用" in llm.calls[1], "重问时必须把上次错在哪告诉模型"
+
+
+def test_重问后仍然不行时要如实说出模型返回了什么(cards, retriever):
+    hits = retriever.search("他说自己不配被爱", k=3)
+    bad = json.dumps({"options": [{"reply": "字段名不对", "reason": "所以被丢了"}]},
+                     ensure_ascii=False)
+    opts = generate_options(_Scripted(bad), "", [], hits)
+
+    assert opts == []
+    assert getattr(opts, "kind", "") == "validation", "这不是模型调用失败，不能混着报"
+    err = getattr(opts, "error", "")
+    assert "reply" in err and "reason" in err, "必须指出模型实际用了哪些字段名"
+
+
+def test_空的_options_数组要被说成交白卷而不是校验没过(cards, retriever):
+    hits = retriever.search("他说自己不配被爱", k=3)
+    opts = generate_options(_Scripted(json.dumps({"options": []})), "", [], hits)
+    assert getattr(opts, "kind", "") == "validation"
+    assert "空数组" in getattr(opts, "error", "")
+
+
+def test_引用校验和套话校验永远不会把结果清空(cards, retriever):
+    """锁住那条让旧提示文案变成错误诊断的性质。
+
+    全部未接地 + 全部是套话，仍然必须给出带标记的选项——
+    因为「给用户空结果」比「给用户带警告的结果」更糟。
+    """
+    hits = retriever.search("他说自己不配被爱", k=3)
+    llm = mock_llm({"options": [
+        {"text": "我在呢，有什么都跟我说", "why": "陪伴", "card_id": "comm_888", "anchor": ""},
+    ]})
+    opts = generate_options(llm, "他今天说自己不配被爱", [], hits)
+    assert len(opts) == 1
+    assert opts[0].grounded is False and opts[0].specific is False
+
+
+# --------------------------------------------------------------------------- #
 # Prompt 构造
 # --------------------------------------------------------------------------- #
 def test_prompt_only_includes_non_empty_profile_fields(cards, retriever):
