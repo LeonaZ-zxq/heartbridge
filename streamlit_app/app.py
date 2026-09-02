@@ -159,6 +159,14 @@ if go and transcript.strip():
                     st.caption(f"依据卡片：`{opt.card_id}`")
                 else:
                     st.caption(f"⚠️ 引用了未检索到的卡片 `{opt.card_id}`——已标记为不可信")
+                # 编造检测：说清楚编了**哪个词**，而不是笼统地说「不可信」。
+                # 这条只在所有选项都编造时才会显示（否则那些选项已经被丢掉了）。
+                if opt.invented:
+                    st.caption(
+                        "⚠️ 这条提到了他没说过的东西："
+                        + "、".join(f"`{w}`" for w in opt.invented)
+                        + "——发出去之前先确认一下是不是真的"
+                    )
 
         if result.hits:
             with st.expander(f"检索到的 {len(result.hits)} 张卡片（后端：{backend_name()}）"):

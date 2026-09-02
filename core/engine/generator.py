@@ -48,22 +48,39 @@ class _Failed(list):
 
 SYSTEM_PROMPT = """你在帮助一位抑郁症患者的伴侣，想出「此刻可以怎么回复」。
 
+━━━ 卡片提供技巧，他的话提供事实 ━━━
+
+下面给你的知识卡片提供的是**技巧**，不是**事实**。
+卡片里的「技巧示范」用的是别人的情境，**一律不许照抄**。
+
+关于他的一切事实——他的症状、他在做什么、他在哪、发生了什么——
+**只能来自他自己说的话**。卡片里出现过、但他这次没提过的东西
+（睡眠、语音通话、课堂、工作、房间……），一个字都不许写进回复。
+
 硬性要求：
 1. 生成 2-3 个**风格不同**的回复选项（例如：偏共情 / 偏陪伴行动 / 偏轻）。
 2. 每个选项必须给出 why：解释这么说为什么有效，讲机制，不要复述内容。
 3. 每个选项必须标注 card_id，来自下面提供的知识卡片。不许引用没给你的卡。
 4. **每个选项必须给出 anchor：从他刚才说的话里原样摘一个词或短句**，
    表示这条回复是在回应这个具体的东西。anchor 必须是他消息里的**原文**，不能改写。
-5. **禁止写放到任何情境都成立的句子。**「我在」「我陪着你」「别难过」「会好起来的」
+   anchor 是给系统看的标记，**不是让你在回复正文里复述他的话**。
+   不要用「听到你说X」「看到你说X」开头——把原话抄回去不叫回应，那是复读。
+5. **要具体，但绝对不许编。**
+   - 他提到了具体的人、事、时间或身体感受 → 回复里必须接住那个具体的东西。
+     正例（合格）：「面试官只见了你三十分钟，我见了你两年半」
+   - 他说的全是情绪、没有任何具体事实 → 就回应那个情绪本身。
+     这种时候**宁可说得朴素，也不许发明一个他没说过的场景**：
+     不许假设他失眠，不许假设他在上课，不许安排他没提过的活动。
+     编一个具体场景出来，比说得朴素严重得多。
+6. **禁止写放到任何情境都成立的句子。**「我在」「我陪着你」「别难过」「会好起来的」
    这类话单独成句一律不合格——它们没有回应任何具体的东西，读起来像模板。
-   每条回复里必须出现他提到的**具体的人、事、时间或身体感受**。
    反例（不合格）：「我在呢，有什么都跟我说」
-   正例（合格）：「面试官只见了你三十分钟，我见了你两年半」
-6. 回复要像真人发微信：口语、短、可以直接复制粘贴。不要书面语，不要排比句。
-7. 不要诊断，不要给医疗建议，不要保证「一定会好」。
-8. 如果提供了「我的语气样本」，模仿那个语气和用词习惯。
-9. 如果 profile 标注了雷区，绝对不要碰。
-10. 如果是异地，优先给远程可执行的做法，不要写"抱抱他"这种做不到的事。
+7. 回复要像真人发微信：口语、短、可以直接复制粘贴。不要书面语，不要排比句。
+8. 不要诊断，不要给医疗建议，不要下病因判断（「这也是抑郁常见的症状」这种一律不许写），
+   不要保证「一定会好」。
+9. 如果提供了「我的语气样本」，模仿那个语气和用词习惯。
+10. 如果 profile 标注了雷区，绝对不要碰。
+11. 如果是异地，优先给远程可执行的做法，不要写"抱抱他"这种做不到的事。
 
 只输出 JSON，不要任何其他文字：
 {"options":[{"text":"要发出去的话","why":"为什么有效（讲机制，1-2句）","anchor":"从他消息里原样摘的词","card_id":"comm_001","style":"共情"}]}"""
@@ -106,6 +123,93 @@ def _check_anchor(anchor: str, haystack: str) -> bool:
     return a in _norm(haystack)
 
 
+# --------------------------------------------------------------------------- #
+# 反幻觉：回复里不许出现他没说过的事实
+# --------------------------------------------------------------------------- #
+#
+# ━━━ 这一条是被一个真实的失败案例逼出来的 ━━━
+#
+# 用户输入的全是情绪（「我什么都做不好」「跟我在一起很累吧」），
+# 没有任何具体事实。而 SYSTEM_PROMPT 原来的第 5 条要求「必须具体」。
+# 模型被要求具体、输入里又没有具体的东西可用——**于是它编了一个**：
+# 编出了失眠、编出了语音数呼吸、编出了一个知识库里根本不存在的「课堂糗事」。
+#
+# 教训：一条防套话的规则，在输入抽象时会**主动制造幻觉**。
+# 光在 prompt 里加「不许编」是不够的（跟「要具体」一样没有约束力），
+# 所以这里把它也翻译成一个代码能执行的检查：
+#     回复里出现的**具体名词**，必须能在他的原话里找到依据。
+#     找不到 = 这个事实是编的 = 这条选项不合格。
+#
+# 只查名词性的词，是因为「关于一个人处境的事实」几乎都是名词
+# （症状、课堂、房间、语音）。动词形容词噪音太大，查了会误伤好回复。
+
+_FACT_POS = frozenset({"n", "ns", "nt", "nz", "s"})
+
+# 这些名词太常用，出现在任何回复里都不构成「编造事实」。
+_COMMON_NOUNS = frozenset({
+    "宝宝", "宝贝", "亲爱", "老公", "老婆",
+    "东西", "事情", "时候", "时间", "样子", "办法", "意思", "出口",
+    "现在", "今天", "明天", "今晚", "昨天", "日子",
+    "心里", "身上", "感觉", "心情", "状态", "力气", "脑子",
+    "人生", "世界", "话说",
+    # 泛指人群的抽象概念。他说「你要是跟正常人谈恋爱就好了」时，
+    # 「正常人」不是他处境里的一个事实，只是他用来贬低自己的一个抽象参照。
+    # 不排掉的话，一段纯情绪的输入会被误判成「有具体事实」，
+    # 于是解除「不许编」的那条动态提醒就不会触发。
+    "正常人", "普通人", "别人", "大家", "所有人",
+})
+
+_PRONOUN_CHARS = "我你他她咱"
+
+
+def _fact_tokens(text: str) -> list[str]:
+    """抽出回复里「声称了一个事实」的名词。
+
+    没装 jieba 就返回空——退化成不做这项检查，而不是崩掉或全判不合格。
+    这跟 retrieval.tokenize 的降级哲学一致：核心逻辑永远可跑。
+    """
+    try:
+        import jieba.posseg as pseg
+    except ImportError:
+        return []
+    out: list[str] = []
+    for word, flag in pseg.cut(text):
+        if flag not in _FACT_POS or len(word) < 2:
+            continue
+        if word in _COMMON_NOUNS:
+            continue
+        if any(c in word for c in _PRONOUN_CHARS):
+            continue  # 「我会」这类分词噪音
+        out.append(word)
+    return out
+
+
+def _has_basis(token: str, haystack: str) -> bool:
+    """这个词在他的原话里有没有依据。
+
+    用 2-gram 重叠而不是整词匹配：他说「今天面试又挂了」，
+    回复里写「面试官」应该算有依据（「面试」对得上），
+    整词比对会把它误判成编造。
+    """
+    return any(token[i : i + 2] in haystack for i in range(len(token) - 1))
+
+
+def _invented_facts(text: str, said: str) -> tuple[str, ...]:
+    """回复里出现、但他原话里查无依据的具体名词。"""
+    haystack = _norm(said)
+    found: list[str] = []
+    for tok in _fact_tokens(text):
+        if tok not in found and not _has_basis(tok, haystack):
+            found.append(tok)
+    return tuple(found)
+
+
+# 「听到你说X」这类复读开头。
+# 这不是硬性不合格（有些卡的技巧本身就要引用原话），
+# 只作为排序偏好：有不复读的选项时优先给不复读的。
+_QUOTE_BACK = re.compile(r"^.{0,8}?(听到|看到|听见)?你说")
+
+
 @dataclass
 class ReplyOption:
     text: str
@@ -115,6 +219,8 @@ class ReplyOption:
     grounded: bool = True   # card_id 是否真的在检索结果里
     anchor: str = ""        # 这条回复在回应他说的哪一句原话
     specific: bool = True   # anchor 是否真的出现在他的消息里
+    invented: tuple[str, ...] = ()   # 他没说过、却写进回复的具体名词
+    quotes_back: bool = False        # 是不是「听到你说X」式的复读开头
 
 
 def build_user_prompt(
@@ -148,7 +254,8 @@ def build_user_prompt(
                 f"适用情境：{c.scenario}\n"
                 f"要做：{'；'.join(c.do)}\n"
                 f"不要做：{'；'.join(c.dont)}\n"
-                f"参考说法：{'；'.join(c.example_phrases)}\n"
+                f"技巧示范（别人的情境，学结构不要抄内容）："
+                f"{'；'.join(c.example_phrases)}\n"
                 f"原理：{c.why_it_works}"
             )
         elif c.type == "somatic":
@@ -157,7 +264,7 @@ def build_user_prompt(
                 f"是什么：{c.what_it_is}\n"
                 f"在他身边时：{'；'.join(c.in_person)}\n"
                 f"异地/线上时：{'；'.join(c.remote)}\n"
-                f"可以说：{'；'.join(c.say)}\n"
+                f"技巧示范（别人的情境，学结构不要抄内容）：{'；'.join(c.say)}\n"
                 f"不要说：{'；'.join(c.avoid_saying)}\n"
                 f"需要就医的情况：{'；'.join(c.seek_help_if)}"
             )
@@ -176,6 +283,18 @@ def build_user_prompt(
                 "危机卡不得进入生成 prompt；新增卡片类型时必须同时更新这里。"
             )
     parts.append("## 可用的知识卡片（只能引用这些的 card_id）\n" + "\n\n".join(cards_block))
+
+    # 动态提醒：输入里到底有没有具体事实可接。
+    # 没有的时候，「必须具体」这条要求会把模型逼去编——所以这里明确解除它，
+    # 免得模型在「不许笼统」和「不许编」之间选错。
+    said = " ".join([situation, *(t.text for t in turns)])
+    if said.strip() and not _fact_tokens(said):
+        parts.append(
+            "## 注意：这次他说的全是情绪，没有任何具体的人、事、时间或身体感受\n"
+            "所以**不要**在回复里写任何具体场景——不许提睡眠、不许提课堂、"
+            "不许提他没说过的活动。就回应他这几句话本身的情绪。"
+            "朴素但真实，好过具体但编造。"
+        )
     return "\n\n".join(parts)
 
 
@@ -247,6 +366,9 @@ def _validate(
                 specific=_check_anchor(anchor, said) if said else True,
                 # 引用了没检索到的卡 → 标记为未接地。调用方可以据此丢弃或提示。
                 grounded=cid in allowed_ids,
+                # 他没说过的具体名词 → 模型在编造他的处境
+                invented=_invented_facts(text, said) if said else (),
+                quotes_back=bool(_QUOTE_BACK.match(text)),
             )
         )
     return options[:3]
@@ -269,6 +391,7 @@ def generate_options(
     *,
     drop_ungrounded: bool = True,
     drop_generic: bool = True,
+    drop_invented: bool = True,
 ) -> list[ReplyOption]:
     allowed = {h.id for h in hits}
     said = " ".join([situation, *(t.text for t in turns)])
@@ -313,11 +436,16 @@ def generate_options(
                 f"重问后：{_describe_raw(raw2)}｜{'；'.join(drops2) or '仍然没有可用选项'}",
                 kind="validation",
             )
+    if drop_invented:
+        # 编造他的处境比说得笼统严重：一条编出来的「你失眠」会让用户
+        # 把它直接发出去，对面收到的是一句不属于自己的话。
+        options = [o for o in options if not o.invented] or options
     if drop_generic:
         # 同样的兜底哲学：全部不合格时宁可带标记给出，也不给空结果。
         options = [o for o in options if o.specific] or options
     if drop_ungrounded:
         kept = [o for o in options if o.grounded]
         # 但如果全部未接地就都留下并标记——给用户空结果比给带警告的结果更糟
-        return kept or options
-    return options
+        options = kept or options
+    # 软偏好（不是过滤）：有不复读开头的选项时，把它们排在前面。
+    return sorted(options, key=lambda o: o.quotes_back)
