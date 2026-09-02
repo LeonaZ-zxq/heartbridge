@@ -146,7 +146,46 @@ class SomaticCard(BaseCard):
         return " ".join([self.symptom, *self.aliases, *spoken, *self.tags])
 
 
-Card = Union[CommunicationCard, SomaticCard]
+class CrisisCard(BaseCard):
+    """危机时刻的具体做法与话术。
+
+    为什么必须单独成一类，而不是塞进 communication：
+    危机分支**不调用 LLM**——确定性是这条路径的核心性质，已经是 CI 发布门禁。
+    所以这里的每一句话都必须是人工写好、可追溯到临床来源的成品，
+    而不是模型看着卡片现编的。字段结构也因此不同：
+    沟通卡回答「怎么说更有效」，危机卡还必须回答「什么时候立刻升级」。
+
+    在此之前这条路径下面是空的：`CardType` 声明了 crisis，却没有模型、没有卡片，
+    于是所有危机情境共用同一段写死的文本。**最需要具体话术的时刻，最没有内容。**
+    """
+
+    type: Literal["crisis"] = "crisis"
+    signal: NonEmptyStr = Field(description="这张卡对应哪一种危机信号")
+    aliases: list[str] = Field(default_factory=list, description="使用者会怎么口语描述这个信号")
+    what_it_means: NonEmptyStr = Field(description="这个信号意味着什么，给陪伴者的判断依据")
+    do_now: list[NonEmptyStr] = Field(min_length=1, description="现在就做的事")
+    say: list[NonEmptyStr] = Field(min_length=1, description="可以直接说出口的话")
+    avoid_saying: list[NonEmptyStr] = Field(min_length=1)
+    escalate_if: list[NonEmptyStr] = Field(min_length=1, description="出现这些就必须立刻求助专业/急救")
+
+    @model_validator(mode="after")
+    def _require_authority(self) -> "CrisisCard":
+        # 和躯体化卡同样的硬约束，且理由更强：
+        # 危机指导说错的代价不可逆，不接受「某博主说」单独成立。
+        if not (self.source.authority or self.source.url):
+            raise ValueError(
+                f"危机卡 {self.id} 缺少权威来源：source.authority 或 source.url 必须有一个"
+            )
+        return self
+
+    def index_text(self) -> str:
+        # 同样吃过语域不匹配的亏（见 SomaticCard.index_text）：
+        # 查询是带主语的句子，孤立短语落在向量空间的另一个区域。
+        spoken = [f"他说{a}" for a in self.aliases]
+        return " ".join([self.signal, *self.aliases, *spoken, *self.tags])
+
+
+Card = Union[CommunicationCard, SomaticCard, CrisisCard]
 
 
 def parse_card(raw: dict) -> Card:
@@ -156,6 +195,8 @@ def parse_card(raw: dict) -> Card:
         return CommunicationCard.model_validate(raw)
     if t == "somatic":
         return SomaticCard.model_validate(raw)
+    if t == "crisis":
+        return CrisisCard.model_validate(raw)
     raise ValueError(f"未知卡片 type: {t!r}")
 
 

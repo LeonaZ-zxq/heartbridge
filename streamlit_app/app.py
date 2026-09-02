@@ -77,10 +77,34 @@ if go and transcript.strip():
     if result.is_crisis:
         st.error("检测到危机信号，已跳过正常流程。", icon="🚨")
         st.markdown(result.crisis_response)
+        if result.hits:
+            st.markdown("### 针对这个信号，具体可以怎么做")
+            st.caption("以下内容来自人工撰写、标注临床来源的危机卡片——**不是模型生成的**。")
+            for h in result.hits:
+                card = h.card
+                with st.container(border=True):
+                    st.markdown(f"**{card.signal}**")
+                    st.caption(card.what_it_means)
+                    st.markdown("**现在就做**")
+                    for x in card.do_now:
+                        st.markdown(f"- {x}")
+                    st.markdown("**可以这样说**")
+                    for x in card.say:
+                        st.markdown(f"- 「{x}」")
+                    with st.expander("不要说 / 什么情况必须立刻求助"):
+                        for x in card.avoid_saying:
+                            st.markdown(f"- ✗ {x}")
+                        st.markdown("**出现这些就立刻求助专业或急救：**")
+                        for x in card.escalate_if:
+                            st.markdown(f"- ⚠️ {x}")
+                    st.caption(f"来源：{card.source.authority or card.source.url}"
+                               + ("　·　⚠ 尚未人工复核" if card.needs_review else ""))
+
         with st.expander("这里发生了什么（技术说明）"):
             st.markdown(
-                "- 规则层命中，管道**短路**：没有做检索，也没有调用生成模型。\n"
-                "- 你看到的内容是**人工审查过的固定模板**，不是生成的。相同输入永远得到相同输出。\n"
+                "- 规则层命中，管道**短路**：没有调用生成模型。\n"
+                "- 固定模板 + 按信号检索到的危机卡片，两者都是人工审查过的文本。\n"
+                "- 相同输入永远得到相同输出——这条路径上没有任何随机性。\n"
                 f"- 触发依据：`{result.risk.rationale}`"
             )
     else:
@@ -88,7 +112,18 @@ if go and transcript.strip():
             st.warning("这段话里有明显的痛苦信号。回复之后建议继续留意。", icon="⚠️")
 
         if not result.options:
-            st.info("没有生成回复选项（可能是模型调用失败）。下面是检索到的依据卡片。")
+            # 「可能」两个字是个信号：说明这里在猜。
+            # generator 现在把失败原因随返回值带出来了，如实说。
+            err = getattr(result.options, "error", "")
+            if err:
+                st.error(f"模型调用失败，没有生成回复选项：\n\n`{err}`", icon="🔌")
+                if "429" in err or "quota" in err.lower():
+                    st.caption("免费额度用完了。等额度重置，或在侧边栏换一个 key。")
+                elif "超时" in err or "timeout" in err.lower():
+                    st.caption("请求超时。可以再试一次；长文本比短文本更容易撞上超时。")
+            else:
+                st.warning("模型返回了内容，但所有选项都没通过校验（引用无效或过于笼统），"
+                           "因此都被丢弃了。下面是检索到的依据卡片。", icon="🧪")
 
         for i, opt in enumerate(result.options, 1):
             with st.container(border=True):

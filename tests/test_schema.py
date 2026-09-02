@@ -78,3 +78,56 @@ def test_empty_list_rejected():
 def test_unknown_type_rejected():
     with pytest.raises(ValueError):
         parse_card({"type": "nonsense"})
+
+
+# --------------------------------------------------------------------------- #
+# 危机卡：整个知识库里风险最高的内容
+# --------------------------------------------------------------------------- #
+def test_危机卡必须有权威来源(cards):
+    """和躯体化卡同样的硬约束，理由更强：危机指导说错的代价不可逆。"""
+    from core.knowledge.schema import CrisisCard
+
+    crisis = [c for c in cards if isinstance(c, CrisisCard)]
+    assert crisis, "知识库里应当有危机卡"
+    for c in crisis:
+        assert c.source.authority or c.source.url, f"{c.id} 没有权威来源"
+
+
+def test_危机卡不接受博主来源():
+    """用类型系统挡住「某博主说」——不是靠 prompt 祈祷模型遵守。"""
+    import pytest
+    from pydantic import ValidationError
+
+    from core.knowledge.schema import CrisisCard
+
+    with pytest.raises(ValidationError):
+        CrisisCard(
+            id="crisis_999", signal="测试", what_it_means="测试",
+            do_now=["x"], say=["x"], avoid_saying=["x"], escalate_if=["x"],
+            source={"platform": "douyin", "author": "某博主"},
+        )
+
+
+def test_每张危机卡都要说清楚什么时候升级(cards):
+    """这是危机卡区别于沟通卡的关键字段。缺了它，这张卡是危险的。"""
+    from core.knowledge.schema import CrisisCard
+
+    for c in (c for c in cards if isinstance(c, CrisisCard)):
+        assert c.escalate_if, f"{c.id} 没有写升级条件"
+        assert c.do_now and c.say and c.avoid_saying
+
+
+def test_危机卡不得列举具体方式(cards):
+    """危机内容里不应出现具体的自伤方式。
+
+    即使是在「移开危险物品」这种正当建议里也不列举：
+    这类信息本身有风险，而陪伴者本来就知道自己家里有什么。
+    """
+    from core.knowledge.schema import CrisisCard
+
+    banned = ["割腕", "上吊", "跳楼", "安眠药", "农药", "煤气", "一氧化碳"]
+    for c in (c for c in cards if isinstance(c, CrisisCard)):
+        blob = " ".join([c.signal, c.what_it_means, *c.do_now, *c.say,
+                         *c.avoid_saying, *c.escalate_if])
+        hit = [w for w in banned if w in blob]
+        assert not hit, f"{c.id} 出现了具体方式：{hit}"

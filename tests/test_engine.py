@@ -107,13 +107,38 @@ def test_prompt_lists_only_retrieved_card_ids(cards, retriever):
 # --------------------------------------------------------------------------- #
 # 端到端：安全分支优先
 # --------------------------------------------------------------------------- #
-def test_crisis_short_circuits_before_retrieval_and_generation(retriever):
-    """危机命中时，检索和生成都不该发生——用户看到的必须是审查过的模板。"""
+def test_crisis_never_generates(retriever):
+    """危机命中时**绝不调用生成**——这条是安全性质，不可更改。
+
+    契约变更记录：这条测试原本还断言 `adv.hits == []`（危机时连检索都不做）。
+    那个设计的后果是所有危机情境共用同一段模板：最需要具体话术的时刻，
+    反而是唯一没有知识支撑的分支。现在危机分支会检索**人工撰写、
+    标注临床来源**的危机卡。
+
+    变的是「不检索」，没变的是「不生成」——后者才是安全属性。
+    下面这条 `options == []` 连同 mock 里那句「不该出现」，一起把它钉死。
+    """
     llm = mock_llm({"options": [{"text": "不该出现", "why": "w", "card_id": "comm_001"}]})
     adv = advise("小鱼 23:00\n我不想活了", retriever, llm)
     assert adv.is_crisis
-    assert adv.hits == [] and adv.options == []
+    assert adv.options == [], "危机路径不得产出生成内容"
+    assert "不该出现" not in adv.render(), "模型输出不得泄漏进危机回复"
     assert "13 11 14" in adv.render()
+
+
+def test_crisis_retrieval_is_scoped_to_crisis_cards(retriever):
+    """危机时检索到的必须**全部**是危机卡。
+
+    混进沟通卡是危险的：那些卡是按「日常怎么说更有效」写的，
+    不含「什么时候必须立刻求助」这一栏。
+    """
+    llm = mock_llm({"options": []})
+    adv = advise("小鱼 03:12\n我不想活了", retriever, llm)
+    assert adv.hits, "危机分支应当检索到危机卡，而不是留空"
+    assert all(h.card.type == "crisis" for h in adv.hits), \
+        f"混入了非危机卡：{[h.card.type for h in adv.hits]}"
+    # 每张危机卡都必须带「什么时候升级」——这是它区别于沟通卡的关键字段
+    assert all(h.card.escalate_if for h in adv.hits)
 
 
 def test_normal_path_produces_options_with_reasons(retriever):
@@ -138,3 +163,40 @@ def test_elevated_risk_is_surfaced_to_user(retriever):
     adv = advise("小鱼 23:00\n他说他撑不下去了", retriever, llm)
     assert not adv.is_crisis
     assert "留意" in adv.render()
+
+
+# --------------------------------------------------------------------------- #
+# 危机卡不得泄漏进生成路径
+# --------------------------------------------------------------------------- #
+# 这组来自一个真实泄漏：输入「他说他撑不下去了」判为 ELEVATED（不是 CRISIS），
+# 走正常路径；而正常路径的检索原本不带类型过滤，于是 crisis_001 被检索到
+# 并喂进了生成器——「撑不下去了」正好在它的 aliases 里。
+#
+# 表象是 prompt 组装崩溃（CrisisCard 没有 symptom 字段），
+# 但真正的问题是：危机内容一旦进 prompt，模型就能改写它，
+# 包括「什么时候必须立刻叫救护车」这类升级条件。
+# 而「危机内容确定性交付、永不生成」正是整个安全架构的立足点。
+
+def test_正常路径不得检索到危机卡(retriever):
+    """即使查询和危机卡高度相似，生成路径也不能拿到它们。"""
+    llm = mock_llm({"options": [{"text": "x", "why": "y", "card_id": "comm_001"}]})
+    for text in ["他说他撑不下去了", "他最近把猫送走了", "他忽然变得很平静",
+                 "他让我别告诉别人"]:
+        adv = advise(f"小鱼 23:00\n{text}", retriever, llm)
+        if adv.is_crisis:
+            continue  # 走危机分支的另有测试覆盖
+        leaked = [h.card.id for h in adv.hits if h.card.type == "crisis"]
+        assert not leaked, f"「{text}」把危机卡泄漏进了生成路径：{leaked}"
+
+
+def test_未知卡片类型必须响亮失败(cards):
+    """跳过比抛错更危险：卡仍在「允许引用」白名单里，prompt 里却没有它的内容，
+    模型于是可以引用一张自己没看过的卡，引用校验也拦不住。"""
+    import pytest
+
+    from core.engine.generator import build_user_prompt
+    from core.knowledge.retrieval import Hit
+
+    crisis = next(c for c in cards if c.type == "crisis")
+    with pytest.raises(ValueError, match="不得进入生成"):
+        build_user_prompt("", [], [Hit(card=crisis, score=1.0)], None)

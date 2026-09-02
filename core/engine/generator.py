@@ -26,6 +26,19 @@ from core.profile.models import PartnerProfile
 from core.utils.llm import LLMError, LLMProvider, complete_json
 from core.utils.text import Turn
 
+class _Failed(list):
+    """空的选项列表 + 失败原因。
+
+    刻意做成 list 的子类：所有 `if not options` / `for o in options` 的调用点
+    都不需要改，但想知道原因的地方可以读 `.error`。
+    在「不破坏现有契约」和「不丢失信息」之间，这是成本最低的一条路。
+    """
+
+    def __init__(self, items, error: str = ""):
+        super().__init__(items)
+        self.error = error
+
+
 SYSTEM_PROMPT = """你在帮助一位抑郁症患者的伴侣，想出「此刻可以怎么回复」。
 
 硬性要求：
@@ -131,7 +144,7 @@ def build_user_prompt(
                 f"参考说法：{'；'.join(c.example_phrases)}\n"
                 f"原理：{c.why_it_works}"
             )
-        else:
+        elif c.type == "somatic":
             cards_block.append(
                 f"### {c.id} | 躯体化：{c.symptom}\n"
                 f"是什么：{c.what_it_is}\n"
@@ -140,6 +153,20 @@ def build_user_prompt(
                 f"可以说：{'；'.join(c.say)}\n"
                 f"不要说：{'；'.join(c.avoid_saying)}\n"
                 f"需要就医的情况：{'；'.join(c.seek_help_if)}"
+            )
+        else:
+            # 原来这里是 `else:` 直接当躯体化卡处理——**开放的枚举配封闭的分支**。
+            # 加进第三种卡片类型时，这个假设就悄悄不成立了，
+            # 表现为 `'CrisisCard' object has no attribute 'symptom'`。
+            #
+            # 这里选择抛错而不是跳过：跳过会让这张卡仍然留在「允许引用」的白名单里，
+            # 而 prompt 里却没有它的内容——模型于是可以引用一张自己没看过的卡，
+            # 引用校验也拦不住。宁可响亮地失败。
+            # 危机卡由 pipeline._retrieve_for_generation 挡在门外，
+            # 走到这里说明是编程错误，不是用户输入问题。
+            raise ValueError(
+                f"生成路径收到了不该出现的卡片类型 {c.type!r}（{c.id}）。"
+                "危机卡不得进入生成 prompt；新增卡片类型时必须同时更新这里。"
             )
     parts.append("## 可用的知识卡片（只能引用这些的 card_id）\n" + "\n\n".join(cards_block))
     return "\n\n".join(parts)
@@ -195,8 +222,13 @@ def generate_options(
             llm, SYSTEM_PROMPT, build_user_prompt(situation, turns, hits, profile),
             temperature=0.7,  # 要多样性：三个选项应该真的不一样
         )
-    except LLMError:
-        return []
+    except LLMError as exc:
+        # 以前这里是 `return []`，于是「模型挂了」和「模型答了但全被校验刷掉」
+        # 产出一模一样的空列表，UI 只能写「**可能**是模型调用失败」。
+        # 这和摄取管道里那个「转写成功却零产出」是同一类失败：
+        # 静默降级把两种完全不同的原因压成了同一个观测结果。
+        # 把异常挂在返回值上，让上层能如实说出发生了什么。
+        return _Failed([], str(exc))
     options = _validate(raw, allowed, said)
     if drop_generic:
         # 同样的兜底哲学：全部不合格时宁可带标记给出，也不给空结果。

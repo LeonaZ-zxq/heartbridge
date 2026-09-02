@@ -74,6 +74,25 @@ def _looks_somatic(text: str) -> bool:
     return any(h in text for h in _SOMATIC_HINTS)
 
 
+def _retrieve_for_generation(retriever, query: str, k: int, type_filter):
+    """给生成器用的检索——**排除危机卡**。
+
+    为什么必须排除，而不只是让 prompt 组装能处理它：
+    整个安全架构的立足点是「危机内容确定性交付、永不生成」。
+    危机卡一旦进了 prompt，模型就能改写它——包括「什么时候必须立刻叫救护车」
+    这类升级条件。那正是这个架构明令禁止的事。
+
+    这个泄漏是真实发生过的：输入「他说他撑不下去了」判为 ELEVATED（不是 CRISIS），
+    走正常路径，而正常路径的检索不带类型过滤，于是 crisis_001 被检索到并喂进了生成器
+    （「撑不下去了」正好在它的 aliases 里）。是测试先撞上了 prompt 组装的崩溃，
+    才让人看见底下这个设计泄漏——崩溃只是表象。
+
+    多取几条再过滤：否则混进来的危机卡会白白占掉名额，让生成器少看几张能用的卡。
+    """
+    raw = retriever.search(query, k=k + 3, type_filter=type_filter)
+    return [h for h in raw if h.card.type != "crisis"][:k]
+
+
 def advise(
     raw: str,
     retriever: Retriever,
@@ -91,18 +110,27 @@ def advise(
     # ---- 1. 安全优先 ----
     risk = assess(query_text, llm=llm, cfg=cfg)
     if risk.is_crisis:
+        # 短路仍然成立：**不调用 LLM**。确定性是这条路径的核心性质，
+        # 已经是 CI 的发布门禁，不能为了「更贴切」把它换掉。
+        #
+        # 但「不生成」不等于「不具体」。在此之前这里连检索都没做，
+        # 于是所有危机情境共用同一段模板——最需要具体话术的时刻，
+        # 反而是唯一没有知识支撑的分支。
+        # 现在检索人工撰写、有临床来源的危机卡：**话术来自卡片，不来自模型**。
+        crisis_hits = retriever.search(query_text, k=2, type_filter="crisis")
         return Advice(
             risk=risk,
             turns=turns,
+            hits=crisis_hits,
             crisis_response=render_crisis_response(risk.rationale),
         )
 
     # ---- 2. 路由 + 检索 ----
     type_filter = "somatic" if _looks_somatic(query_text) else None
-    hits = retriever.search(query_text, k=cfg.top_k, type_filter=type_filter)
+    hits = _retrieve_for_generation(retriever, query_text, cfg.top_k, type_filter)
     # 躯体化检索兜底：过滤后没结果就放开限制，宁可给相关的沟通卡也别给空
     if not hits and type_filter:
-        hits = retriever.search(query_text, k=cfg.top_k)
+        hits = _retrieve_for_generation(retriever, query_text, cfg.top_k, None)
 
     # ---- 3. 生成 ----
     options = generate_options(llm, situation, turns, hits, profile)
