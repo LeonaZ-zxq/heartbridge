@@ -115,7 +115,10 @@ if go and transcript.strip():
         # 以前 LLM 二级校验失败会静默返回「无风险」，用户看到的界面
         # 和「两层都查过、确实没事」一模一样——一次网络故障就等于
         # 悄悄关掉了整层安全检测。
-        if not result.risk.second_pass_ok:
+        # getattr 兜底：进程里可能还跑着改动之前的 detector 模块
+        # （Streamlit 重跑脚本但不重新导入已加载的模块）。
+        # 一个缺字段的旧对象不应该让整个页面崩掉。
+        if not getattr(result.risk, "second_pass_ok", True):
             st.warning(
                 "⚠️ 安全检查只跑了规则层——二级校验没调通（网络或额度问题）。"
                 "这**不等于**没有风险，只说明这次没查全。涉及安危的判断请你自己再看一遍。",
