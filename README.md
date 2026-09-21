@@ -32,14 +32,14 @@ It is also deliberately built as an engineering artefact. Every design decision 
 | **Every reply option must cite a retrieved card, and the citation is validated** | A citation to a card that was not retrieved is a hallucination, and is dropped before the user sees it. |
 | **Two evaluation sets, and the honest one is the lower one** | The dev set scores 100%. It's contaminated. The held-out set scores 36.7%. Both are reported. |
 | **In the ingestion pipeline, provenance is stamped by code, not generated** | `source` and `id` are overwritten from download metadata after the model returns. A model cannot invent where a piece of advice came from, because it is never asked to. |
-| **All LLM calls sit behind one interface with a deterministic mock** | The entire 131-test suite runs offline, free, and reproducibly — including in CI, with no API key and no GPU. |
+| **All LLM calls sit behind one interface with a deterministic mock** | The entire 199-test suite runs offline, free, and reproducibly — including in CI, with no API key and no GPU. |
 | **Both evaluations run in CI, and crisis recall is a release gate** | `eval_safety.py` exits non-zero on any missed crisis case, so a regression fails the build rather than showing up on a dashboard. |
 
 ---
 
 ## Results
 
-**Retrieval** (30 cards). Two sets; the held-out one is the number that counts.
+**Retrieval**, measured at 49 cards. Two sets; the held-out one is the number that counts. See below for what happened when the base grew to 101.
 
 | Backend | Dev R@1 | Dev R@3 | **Held-out R@1** | **Held-out R@3** | Held-out MRR |
 |---|---|---|---|---|---|
@@ -51,6 +51,9 @@ Two findings that changed the code:
 
 - **The dev set is contaminated and the 100% is meaningless.** Each card's document-expansion terms were written after inspecting dev-set failures — test-set leakage. The held-out set was authored independently, entirely from paraphrased queries, and BM25 drops from 100% to 36.7% on it.
 - **Hybrid retrieval lost to dense alone on the held-out set** (70.0% vs 76.7%). RRF weights both retrievers equally; when one is substantially weaker, fusion drags the result down. "Hybrid is always better" did not survive contact with the measurement, so the default backend is `dense`.
+- **Growing the knowledge base made the score worse — and the new cards were innocent.** Expanding from 49 to 101 cards dropped held-out R@3 from 76.7% to 60.0%. The obvious reading is that the new material was noise. Of the 12 failing queries, only one returned a new card. The real cause was that somatic cards were indexed as bare noun phrases ("short of breath") while queries arrive as full sentences ("he says he can't catch his breath") — same vocabulary, different *register*, so the two landed in different regions of the embedding space. Generating a sentence-form variant of every alias recovered R@3 to 70.0%, with no change to the data, the model or the backend. The new cards did not introduce the defect; they enlarged the candidate pool until an existing weakness stopped getting away with it.
+
+> **Caveat that matters more than the numbers: the held-out set is no longer clean.** It was used to choose the backend, then to diagnose the register defect, then to verify the fix. 70.0% should be read as evidence that the register hypothesis was correct — not as a publishable retrieval score. A third, never-inspected evaluation set is the current blocker, and no headline retrieval number should be quoted until it exists.
 
 Full methodology in [`docs/EVALUATION.md`](docs/EVALUATION.md).
 
@@ -65,12 +68,12 @@ sentinel, and is explicitly **not** the acceptance criterion: self-preference
 and position bias are known, and its correlation with human judgement in this
 domain is unverified. See [`docs/EVALUATION.md`](docs/EVALUATION.md) §3.
 
-**Crisis detection** (41 cases: 14 crisis / 8 elevated / 19 normal, 10 of them adversarial)
+**Crisis detection** (61 cases: 19 crisis / 15 elevated / 27 normal, including adversarial benign cases)
 
 | Metric | Result |
 |---|---|
-| Crisis recall | **100%** (14/14) — zero tolerance |
-| False-positive rate | **0%** (0/19) |
+| Crisis recall | **100%** (19/19) — zero tolerance |
+| False-positive rate | **0%** (0/27) |
 | Severity downgrades | 0 |
 
 The first evaluation run caught 3 genuine misses. Rules were fixed and the cases locked in as tests.
@@ -118,7 +121,7 @@ python scripts/eval_retrieval.py --set both      # retrieval
 python scripts/eval_index_ablation.py            # index-text ablation
 python scripts/eval_safety.py                    # crisis detection
 python scripts/eval_generation.py generate       # generation A/B (needs an API key)
-pytest -q                                        # 131 tests, incl. Streamlit UI
+pytest -q                                        # 199 tests, incl. Streamlit UI
 ```
 
 For real generation, copy `.env.example` to `.env` and set a provider (OpenRouter or Gemini).
@@ -141,7 +144,7 @@ A partner's mental-health information is the most sensitive category of personal
 ## Repository layout
 
 ```
-streamlit_app/         3-page web UI; the deployed demo runs with fabricated data only
+streamlit_app/         5-page web UI; the deployed demo runs with fabricated data only
 core/
   config.py            all model names, thresholds, paths — no hardcoding
   knowledge/           card schema, BM25 / dense / RRF retrieval, evaluator
@@ -158,11 +161,21 @@ docs/                  architecture, evaluation methodology
 
 ## Knowledge base sourcing
 
-All 30 cards are distilled from public clinical-education material, primarily [Beyond Blue](https://www.beyondblue.org.au/) and [Healthdirect Australia](https://www.healthdirect.gov.au/). Every card carries a `source` field. Somatic-symptom cards **structurally cannot exist** without an authoritative source — the model validator rejects them.
+101 cards, and they are deliberately **not** all the same kind of source. That is what `evidence_tier` is for.
+
+| Tier | Cards | Origin |
+|---|---|---|
+| `clinical_guideline` | 27 | [Beyond Blue](https://www.beyondblue.org.au/), [Healthdirect Australia](https://www.healthdirect.gov.au/) |
+| `lived_experience` | 44 | Chinese mental-health creators, distilled and hand-reviewed |
+| untiered (predates the field) | 30 | Original core set, clinical material |
+
+The tier is load-bearing, not a label. Somatic-symptom cards **structurally cannot exist** without an authoritative source — the validator rejects them at load time — so lived-experience material can never become the basis of a symptom claim. And the tier is stamped by code during ingestion rather than written by the model, so a distilled card cannot promote itself to clinical.
+
+**Distillation is not transcription.** Where a creator's advice did not hold up, it did not become a card. Medication guidance from short-form video was dropped in full. Self-harm "substitutes" that still route through physical discomfort — holding ice, chilli, cold water — were left out, because they preserve the exact mechanism they claim to replace. One boundary-setting card carries a constraint the original did not have: that boundary-setting is the wrong tool while self-harm threats are live. Without that line the card is dangerous. The knowledge base is answerable for every piece of advice it carries, whether or not the original author was.
 
 ## Status & roadmap
 
-Working today: knowledge base, retrieval + evaluation, crisis detection, reply generation, generation-quality evaluation, ingestion pipeline, CLI, CI, and a 3-page Streamlit UI.
+Working today: knowledge base, retrieval + evaluation, crisis detection, reply generation, generation-quality evaluation, ingestion pipeline, CLI, CI, and a 5-page Streamlit UI.
 Next: human blind-rating results on the generation A/B, then a Discord bot.
 
 See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for how to run it, and for why the public demo deliberately ships without an API key.
