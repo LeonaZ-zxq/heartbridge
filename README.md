@@ -12,6 +12,16 @@ You paste the conversation you're stuck in. HeartBridge classifies the risk leve
 
 ---
 
+## Results at a glance
+
+| Metric | Result |
+|---|---|
+| Retrieval — held-out Recall@3 | BM25 33.3% → dense **70.0%** · *diagnostic only — the held-out set is contaminated and this is not a publishable score (see [Results](#results))* |
+| Crisis detection — 61 labelled cases | recall **100%** (19/19), false alarms **0%** (0/27) · enforced as a CI release gate |
+| Test suite | **199 tests**, fully offline — no API key, no GPU, no network |
+
+---
+
 ## Why this exists
 
 Partners and family members are the people most often in the room when someone with depression is struggling, and they are almost never given anything usable. "What do I actually say right now" is a real, recurring, high-stakes question, and the advice available online is scattered, unsourced and generic. Clinical guidance exists — Beyond Blue and Healthdirect publish good material — but it is written to be read calmly in advance, not consulted at 2am mid-conversation.
@@ -152,9 +162,9 @@ core/
   engine/              prompt assembly, generation, citation validation, pipeline
   profile/             partner profile model + local SQLite store
   ingestion/           yt-dlp download, local Whisper ASR, LLM distillation
-  utils/               LLM abstraction (OpenRouter / Gemini / Mock), transcript parser
-knowledge_base/cards/  30 curated cards, every one with a source
-tests/                 83 tests; fixtures hold both evaluation sets
+  utils/               LLM abstraction (Groq / Gemini / OpenRouter / Mock), transcript parser
+knowledge_base/cards/  tiered cards, every one carries a source
+tests/                 offline suite; fixtures hold every evaluation set
 scripts/               reproducible evaluation + CLI
 docs/                  architecture, evaluation methodology
 ```
