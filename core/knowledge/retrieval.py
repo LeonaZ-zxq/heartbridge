@@ -31,7 +31,7 @@ from core.knowledge.schema import Card
 # --------------------------------------------------------------------------- #
 # 中文分词
 # --------------------------------------------------------------------------- #
-_PUNCT = re.compile(r"[\s，。、！？；：''""（）()《》【】…—\-·,.!?;:'\"/\\|]+")
+_PUNCT = re.compile(r"[\s，。、！？；：''""（）()《》【】…—·,.!?;:'\"/\\|-]+")
 # 极简停用词表。中文检索里这些高频虚词几乎不携带区分度，
 # 留着会让 BM25 的 IDF 被稀释。
 _STOP = {
@@ -166,8 +166,28 @@ class DenseRetriever:
     model_name: str = "BAAI/bge-small-zh-v1.5"
     name: str = "dense"
     text_fn: Callable[[Card], str] | None = None
+    # 向量索引后端：numpy | flat | hnsw
+    #
+    # ━━━ 三个都实现了，而默认依然是 numpy ━━━
+    #
+    #   numpy：全量点积。O(N·d)，N=101 时一次查询是几十微秒。
+    #   flat ：faiss.IndexFlatIP。**同样是全量精确检索**，只是 SIMD 实现更好。
+    #          结果必须和 numpy 逐位一致——不一致就说明实现有 bug，测试锁死了这一点。
+    #   hnsw ：faiss.IndexHNSWFlat。近似检索，用召回率换延迟。
+    #
+    # 近似检索解决的是「候选集大到线性扫描不可接受」的问题。
+    # 这个语料 101 张卡，线性扫描本来就不是瓶颈，
+    # 上 HNSW 只会**用召回率换一个不存在的性能问题**。
+    # 所以默认留在 numpy：faiss 是可选依赖，缺了也不影响整个测试套件。
+    #
+    # 把三条路都跑通再选最朴素的那条，和「hybrid 输给 dense」是同一件事：
+    # 让测量来决定，而不是让流行度决定。
+    index: str = "numpy"
+    hnsw_m: int = 32            # 每个节点的出边数，faiss 默认量级
+    hnsw_ef_search: int = 64    # 查询时的候选队列深度，越大越准越慢
     _model: object | None = field(default=None, init=False)
     _emb: object | None = field(default=None, init=False)
+    _index: object | None = field(default=None, init=False)
 
     def _ensure(self) -> None:
         if self._model is not None:
@@ -181,20 +201,51 @@ class DenseRetriever:
             normalize_embeddings=True,  # 归一化后点积 == 余弦相似度，省一次除法
             show_progress_bar=False,
         )
+        if self.index != "numpy":
+            self._build_faiss()
+
+    def _build_faiss(self) -> None:
+        import faiss
+        import numpy as np
+
+        emb = np.ascontiguousarray(np.asarray(self._emb), dtype="float32")
+        dim = emb.shape[1]
+        if self.index == "flat":
+            # 向量已归一化，所以内积就是余弦相似度——和 numpy 路径同一个度量
+            idx = faiss.IndexFlatIP(dim)
+        elif self.index == "hnsw":
+            idx = faiss.IndexHNSWFlat(dim, self.hnsw_m, faiss.METRIC_INNER_PRODUCT)
+            idx.hnsw.efSearch = self.hnsw_ef_search
+        else:
+            raise ValueError(f"未知向量索引: {self.index}（可选 numpy | flat | hnsw）")
+        idx.add(emb)
+        self._index = idx
 
     def search(self, query: str, k: int = 3, type_filter: str | None = None) -> list[Hit]:
         self._ensure()
         import numpy as np
 
         qv = self._model.encode([query], normalize_embeddings=True)[0]  # type: ignore[union-attr]
-        sims = np.asarray(self._emb) @ qv
-        order = np.argsort(-sims)
+
+        if self.index == "numpy":
+            sims = np.asarray(self._emb) @ qv
+            order = [int(i) for i in np.argsort(-sims)]
+            scores = {i: float(sims[i]) for i in order}
+        else:
+            # 有 type_filter 时要多取：faiss 只会返回全局 top-n，
+            # 过滤之后可能一张都不剩。101 张卡全取回来的代价可以忽略。
+            n = len(self.cards) if type_filter else min(k, len(self.cards))
+            q = np.ascontiguousarray(qv.reshape(1, -1), dtype="float32")
+            sims, idxs = self._index.search(q, n)  # type: ignore[union-attr]
+            order = [int(i) for i in idxs[0] if i != -1]
+            scores = {int(i): float(sc) for i, sc in zip(idxs[0], sims[0]) if i != -1}
+
         out: list[Hit] = []
         for i in order:
-            card = self.cards[int(i)]
+            card = self.cards[i]
             if type_filter and card.type != type_filter:
                 continue
-            out.append(Hit(card, float(sims[int(i)]), self.name))
+            out.append(Hit(card, scores[i], self.name))
             if len(out) >= k:
                 break
         return out
@@ -231,6 +282,79 @@ class HybridRetriever:
 
 
 # --------------------------------------------------------------------------- #
+# Rerank：召回—精排两级链路
+# --------------------------------------------------------------------------- #
+@dataclass
+class RerankRetriever:
+    """第一级宽召回，第二级 cross-encoder 精排。
+
+    ━━━ 为什么两级，而不是把第一级调得更准 ━━━
+
+    前面三个检索器都是 **bi-encoder**（或词袋）：query 和 card 各自独立
+    编码成一个向量，再比相似度。这让检索可以预先建索引、在整个语料上
+    一次算完——代价是 query 和 card **从来没有互相看过**，所有交互被
+    压缩进一个点积里。
+
+    cross-encoder 把 (query, card) 拼成一对一起送进模型，两边逐 token
+    互相注意，判别力明显更强。代价同样明显：它**不能预先建索引**，
+    每个候选都要跑一次模型，复杂度 O(候选数) 而不是 O(1)。
+
+    所以工业界的标准形状是两级：
+        第一级要**召回**——宽一点，便宜，宁滥勿缺；
+        第二级要**精度**——窄一点，昂贵，在小候选集上重排。
+    这个类就是第二级，它包装任意一个满足 Retriever 协议的第一级。
+
+    ━━━ candidate_k 为什么是 20，以及为什么没调 ━━━
+
+    20 是这类流水线的通行默认值，**不是在本项目评测集上调出来的**。
+    这是刻意的：留出集已经被用于选型、诊断和验证三次，
+    见 docs/EVALUATION.md §4.4。再用它调一个超参就是第四次污染，
+    而这个项目最值钱的东西恰恰是「我知道哪个数字能对外说」。
+
+    在干净的第三份评测集出现之前，这里只报**不调参的默认配置**。
+    """
+
+    base: Retriever
+    model_name: str = "BAAI/bge-reranker-base"
+    # 第一级放宽到多少个候选交给精排
+    candidate_k: int = 20
+    name: str = "rerank"
+    # 打分函数注入点：传入就不加载真模型。
+    # 这让整个测试套件在没有 torch、没有模型权重、没有网络的情况下
+    # 依然能验证**重排逻辑本身**——和 DenseRetriever 懒加载同一个思路。
+    score_fn: Callable[[str, Sequence[Card]], Sequence[float]] | None = None
+    _model: object | None = field(default=None, init=False)
+
+    def _ensure(self) -> None:
+        if self._model is not None:
+            return
+        from sentence_transformers import CrossEncoder
+
+        self._model = CrossEncoder(self.model_name)
+
+    def _score(self, query: str, cards: Sequence[Card]) -> Sequence[float]:
+        if self.score_fn is not None:
+            return self.score_fn(query, cards)
+        self._ensure()
+        pairs = [(query, c.index_text()) for c in cards]
+        return [float(s) for s in self._model.predict(pairs)]  # type: ignore[union-attr]
+
+    def search(self, query: str, k: int = 3, type_filter: str | None = None) -> list[Hit]:
+        # type_filter 交给第一级执行。在这里再过滤一次会先花精排的算力、
+        # 再把结果丢掉，而且会让实际参与重排的候选数小于 candidate_k。
+        cands = self.base.search(query, k=self.candidate_k, type_filter=type_filter)
+        if not cands:
+            return []
+        scores = self._score(query, [h.card for h in cands])
+        if len(scores) != len(cands):
+            raise ValueError(
+                f"重排打分数量对不上：{len(scores)} 个分数 vs {len(cands)} 个候选"
+            )
+        ranked = sorted(zip(cands, scores), key=lambda p: p[1], reverse=True)
+        return [Hit(h.card, float(s), self.name) for h, s in ranked[:k]]
+
+
+# --------------------------------------------------------------------------- #
 # 工厂
 # --------------------------------------------------------------------------- #
 def build_retriever(
@@ -244,10 +368,18 @@ def build_retriever(
     if backend == "bm25":
         return BM25Retriever(cards)
     if backend == "dense":
-        return DenseRetriever(cards, cfg.embedding_model)
+        return DenseRetriever(cards, cfg.embedding_model, index=cfg.dense_index)
     if backend == "hybrid":
         return HybridRetriever(
-            [BM25Retriever(cards), DenseRetriever(cards, cfg.embedding_model)],
+            [BM25Retriever(cards), DenseRetriever(cards, cfg.embedding_model, index=cfg.dense_index)],
             rrf_k=cfg.rrf_k,
+        )
+    if backend == "rerank":
+        if cfg.rerank_base.lower() == "rerank":
+            raise ValueError("HB_RERANK_BASE 不能是 rerank 自己——会无限递归")
+        return RerankRetriever(
+            base=build_retriever(cards, backend=cfg.rerank_base, cfg=cfg),
+            model_name=cfg.reranker_model,
+            candidate_k=cfg.rerank_candidate_k,
         )
     raise ValueError(f"未知检索后端: {backend}")

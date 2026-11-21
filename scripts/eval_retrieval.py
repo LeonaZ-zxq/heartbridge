@@ -1,14 +1,24 @@
 #!/usr/bin/env python3
-"""跑检索评测，对比三种后端。
+"""跑检索评测，对比各个后端。
 
 用法:
-    python scripts/eval_retrieval.py                # 全部后端（dense 需装 sentence-transformers）
+    python scripts/eval_retrieval.py                       # 全部后端（dense 需装 sentence-transformers）
     python scripts/eval_retrieval.py --backends bm25
+    python scripts/eval_retrieval.py --backends rerank --set both
+
+    # T1-1 的对照：精确检索 vs HNSW 近似检索，召回和延迟一起看
+    python scripts/eval_retrieval.py --backends dense --dense-index flat --latency 20 --set holdout
+    python scripts/eval_retrieval.py --backends dense --dense-index hnsw --latency 20 --set holdout
+
+注意：--dense-index flat 是**精确**检索，召回率必须和 numpy 完全一致；
+对不上说明实现有 bug，不是近似误差。只有 hnsw 才允许掉召回。
 """
 from __future__ import annotations
 
 import argparse
 import sys
+import time
+from dataclasses import replace
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -24,6 +34,10 @@ def main() -> int:
     ap.add_argument("--backends", nargs="*", default=["bm25", "dense", "hybrid"])
     ap.add_argument("--k", type=int, default=3)
     ap.add_argument("--show-failures", action="store_true")
+    ap.add_argument("--dense-index", default=None, choices=["numpy", "flat", "hnsw"],
+                    help="向量索引实现。flat/hnsw 需装 faiss-cpu")
+    ap.add_argument("--latency", type=int, default=0, metavar="N",
+                    help="每条查询重复 N 次测延迟（默认 0 = 不测）")
     ap.add_argument("--set", default="dev", choices=["dev", "holdout", "both"],
                     help="dev=开发集（写文档扩展时参考过，分数偏乐观）; holdout=留出集（诚实数字）")
     args = ap.parse_args()
@@ -43,8 +57,9 @@ def _run(cards, queries, set_name, args):
 
     results = []
     for backend in args.backends:
+        cfg = CONFIG if not args.dense_index else replace(CONFIG, dense_index=args.dense_index)
         try:
-            r = build_retriever(cards, backend=backend)
+            r = build_retriever(cards, backend=backend, cfg=cfg)
             res = evaluate(r, queries, k=args.k)
         except ImportError as exc:
             print(f"{backend:<8} 跳过（缺依赖: {exc}）")
@@ -56,6 +71,22 @@ def _run(cards, queries, set_name, args):
         if para:
             sub = evaluate(r, para, k=args.k)
             print(f"{'':<8} └─ 仅改写式查询 (n={sub.n}): Recall@3={sub.recall_at_3:.1%}")
+        if args.latency:
+            # 先跑一次把模型和索引都加载好，不然第一条查询会把权重加载的时间
+            # 算进延迟里，测出来的是冷启动不是检索。
+            r.search(queries[0]["q"], k=args.k)
+            times = []
+            for item in queries:
+                for _ in range(args.latency):
+                    t0 = time.perf_counter()
+                    r.search(item["q"], k=args.k)
+                    times.append((time.perf_counter() - t0) * 1000)
+            times.sort()
+            p50 = times[len(times) // 2]
+            p95 = times[min(int(len(times) * 0.95), len(times) - 1)]
+            label = f"{backend}/{args.dense_index}" if args.dense_index else backend
+            print(f"{'':<8} └─ 延迟 {label} (n={len(times)}): "
+                  f"p50={p50:.2f}ms  p95={p95:.2f}ms  mean={sum(times)/len(times):.2f}ms")
         if args.show_failures and res.failures:
             for f in res.failures:
                 print(f"    ✗ {f['q']}  期望 {f['expect']}  实际 {f['got']}")

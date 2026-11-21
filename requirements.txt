@@ -13,3 +13,12 @@ pytest>=8.0
 # --- 稠密检索（本地跑真实场景时装；CI 可跳过）---
 # sentence-transformers>=3.0
 # chromadb>=0.5
+
+# --- 两级重排（bge-reranker-base，cross-encoder）---
+# 和上面同一个包，单列出来是因为它是另一类模型：
+# bi-encoder 建索引用，cross-encoder 只能在小候选集上精排。
+# sentence-transformers>=3.0
+
+# --- 向量索引（可选；默认的 numpy 全量点积在 101 张卡上已经够快）---
+# 只有想复现「精确 vs HNSW」那组对照时才需要装。
+# faiss-cpu>=1.8

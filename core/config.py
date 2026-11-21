@@ -92,9 +92,26 @@ class Config:
     embedding_model: str = field(
         default_factory=lambda: _env("HB_EMBEDDING_MODEL", "BAAI/bge-small-zh-v1.5")
     )
+    # 向量索引实现：numpy | flat（faiss 精确）| hnsw（faiss 近似）。
+    # 默认 numpy —— 101 张卡的全量点积是微秒级，近似检索解决的是
+    # 这个项目没有的问题。faiss 是可选依赖，缺了不影响测试套件。
+    dense_index: str = field(default_factory=lambda: _env("HB_DENSE_INDEX", "numpy"))
     top_k: int = field(default_factory=lambda: _env_int("HB_TOP_K", 3))
     # RRF 融合的平滑常数，业界惯例 60，见 Cormack et al. 2009
     rrf_k: int = field(default_factory=lambda: _env_int("HB_RRF_K", 60))
+    # ---- 两级重排 ----
+    # bge-reranker-base 是 cross-encoder：query 和 card 拼成一对一起进模型，
+    # 比 bi-encoder 判别力强，但不能预建索引，只能在小候选集上跑。
+    reranker_model: str = field(
+        default_factory=lambda: _env("HB_RERANKER_MODEL", "BAAI/bge-reranker-base")
+    )
+    # 第一级放宽到多少候选。20 是通行默认值，**没有**在本项目评测集上调过——
+    # 留出集已被用于设计决策三次，再拿它调超参就是第四次污染。
+    rerank_candidate_k: int = field(
+        default_factory=lambda: _env_int("HB_RERANK_CANDIDATE_K", 20)
+    )
+    # 重排包在哪个第一级上。dense 是当前最强的单路召回。
+    rerank_base: str = field(default_factory=lambda: _env("HB_RERANK_BASE", "dense"))
 
     # ---------- 安全 ----------
     # 危机检测走「宁可误报，不可漏报」：召回率优先于准确率。
