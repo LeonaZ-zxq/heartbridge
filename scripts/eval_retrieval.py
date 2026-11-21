@@ -38,14 +38,26 @@ def main() -> int:
                     help="向量索引实现。flat/hnsw 需装 faiss-cpu")
     ap.add_argument("--latency", type=int, default=0, metavar="N",
                     help="每条查询重复 N 次测延迟（默认 0 = 不测）")
-    ap.add_argument("--set", default="dev", choices=["dev", "holdout", "both"],
-                    help="dev=开发集（写文档扩展时参考过，分数偏乐观）; holdout=留出集（诚实数字）")
+    ap.add_argument("--set", default="dev",
+                    choices=["dev", "holdout", "test", "both", "all"],
+                    help="dev=开发集（调参用，已污染）; holdout=留出集（选型用，已污染）; "
+                         "test=测试集（只报告，碰了就作废）; both=dev+holdout; all=三份都跑")
     args = ap.parse_args()
 
     cards = load_cards(CONFIG.cards_dir)
     fx = Path(__file__).parent.parent / "tests/fixtures"
-    sets = {"dev": "retrieval_eval.json", "holdout": "retrieval_holdout.json"}
-    chosen = list(sets) if args.set == "both" else [args.set]
+    sets = {"dev": "retrieval_eval.json",
+            "holdout": "retrieval_holdout.json",
+            "test": "retrieval_test.json"}
+    if args.set == "both":
+        chosen = ["dev", "holdout"]        # 保持旧行为不变
+    elif args.set == "all":
+        chosen = list(sets)
+    else:
+        chosen = [args.set]
+    if "test" in chosen:
+        print("⚠️  test 集只用于**报告**。任何基于它的选型、调参或诊断都会让它失效，\n"
+              "    届时必须作废重做，而不是继续引用它的数字。见 docs/EVALUATION.md §5。\n")
     for name in chosen:
         _run(cards, load_eval_set(fx / sets[name]), name, args)
     return 0

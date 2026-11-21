@@ -16,9 +16,9 @@ You paste the conversation you're stuck in. HeartBridge classifies the risk leve
 
 | Metric | Result |
 |---|---|
-| Retrieval — held-out Recall@3 | BM25 33.3% → dense **70.0%** · *diagnostic only — the held-out set is contaminated and this is not a publishable score (see [Results](#results))* |
+| Retrieval — clean test set, Recall@3 | BM25 **48.7%** · first number quotable without a caveat; dense and rerank pending (see [Results](#results)) |
 | Crisis detection — 61 labelled cases | recall **100%** (19/19), false alarms **0%** (0/27) · enforced as a CI release gate |
-| Test suite | **226 tests**, fully offline — no API key, no GPU, no network |
+| Test suite | **240 tests**, fully offline — no API key, no GPU, no network |
 
 ---
 
@@ -41,9 +41,9 @@ It is also deliberately built as an engineering artefact. Every design decision 
 | **Crisis responses are hardcoded templates, not generated** | On the highest-risk path, predictability and auditability beat personalisation. A template can be reviewed word-by-word by a human and asserted line-by-line in tests. |
 | **The ReAct agent cannot skip the crisis check, by construction** | The check is not a tool the model may choose — it runs before the model gets its first turn. On a crisis input the model is never called at all, which is a line in a test rather than a line in a prompt. |
 | **Every reply option must cite a retrieved card, and the citation is validated** | A citation to a card that was not retrieved is a hallucination, and is dropped before the user sees it. |
-| **Two evaluation sets, and the honest one is the lower one** | The dev set scores 100%. It's contaminated. The held-out set scores 36.7%. Both are reported. |
+| **Three evaluation sets, with a different rule for each** | dev is for tuning and is contaminated by design. Held-out was spent on backend selection, three times over, and its 70.0% is diagnostic only. A third set was authored blind to the corpus and labelled blind to the retriever, and may be used for reporting once — nothing may be tuned on it. |
 | **In the ingestion pipeline, provenance is stamped by code, not generated** | `source` and `id` are overwritten from download metadata after the model returns. A model cannot invent where a piece of advice came from, because it is never asked to. |
-| **All LLM calls sit behind one interface with a deterministic mock** | The entire 226-test suite runs offline, free, and reproducibly — including in CI, with no API key and no GPU. |
+| **All LLM calls sit behind one interface with a deterministic mock** | The entire 240-test suite runs offline, free, and reproducibly — including in CI, with no API key and no GPU. |
 | **Both evaluations run in CI, and crisis recall is a release gate** | `eval_safety.py` exits non-zero on any missed crisis case, so a regression fails the build rather than showing up on a dashboard. |
 
 ---
@@ -132,7 +132,7 @@ python scripts/eval_retrieval.py --set both      # retrieval
 python scripts/eval_index_ablation.py            # index-text ablation
 python scripts/eval_safety.py                    # crisis detection
 python scripts/eval_generation.py generate       # generation A/B (needs an API key)
-pytest -q                                        # 226 tests, incl. Streamlit UI
+pytest -q                                        # 240 tests, incl. Streamlit UI
 ```
 
 For real generation, copy `.env.example` to `.env` and set a provider (OpenRouter or Gemini).

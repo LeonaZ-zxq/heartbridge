@@ -332,3 +332,99 @@ Consequences, stated so they are not quietly forgotten:
 
 > Once a set has been used to make a design decision, it is no longer an
 > evaluation set. It has become part of the training data.
+
+---
+
+## 5. The third set, and the three-tier discipline
+
+§4.4 ended by calling a clean set blocking. It exists now:
+`tests/fixtures/retrieval_test.json`, 39 queries, 35 distinct expected cards.
+
+### 5.1 How it was authored, and why that mattered more than the size
+
+The failure mode being defended against is not "too few queries". It is
+**queries reverse-engineered out of the corpus**. That is precisely what
+happened to the dev set: its document-expansion terms were written after
+inspecting dev-set failures, so the set and the index converged until 100%
+meant nothing.
+
+So authoring and labelling were deliberately separated, and only authoring was
+blinded:
+
+**Authoring — blind.** The 42 candidate queries were written by a process with
+no repository context at all: no cards, no failure lists, no retrieval output,
+no index text. It was given the problem domain only — *how does the partner of
+someone with depression actually type at 2am* — plus length and register
+constraints (colloquial, third person about the partner, no clinical
+vocabulary). Nothing about what the knowledge base happens to contain.
+
+**Labelling — sighted, but retrieval-blind.** Assigning `expect` requires
+reading the cards; there is no way to know which card should answer without
+knowing what the cards say. What it must *not* use is the retriever. A label
+chosen after looking at what the system returns records what the system does,
+not what is correct, and the set would be born contaminated. No retriever was
+run during labelling.
+
+That asymmetry is the whole protocol: **blind to the corpus when writing the
+question, blind to the system when writing the answer.**
+
+Three of the 42 were dropped: one tripped a crisis rule (the pipeline would
+short-circuit, so it tests nothing about retrieval), one duplicated another
+situation, and one had no card that answers it — see below.
+
+### 5.2 The dropped query is a finding, not a rounding error
+
+> 「他说他一个人在那边没人管他」 — long-distance loneliness, voiced by the
+> unwell partner.
+
+Across 93 non-crisis cards there is no good answer to it. The long-distance
+material covers silence (`comm_035`), non-response (`comm_033`) and acute
+remote crisis (`comm_011`), but not the ordinary, non-acute complaint of being
+alone at the other end. Forcing a label would have hidden a real coverage gap
+inside a recall number; the gap is recorded here instead.
+
+This is the second argument for blind authoring. A sighted author writes
+queries the corpus can answer, and a corpus-shaped evaluation set cannot
+discover what the corpus is missing.
+
+### 5.3 The three tiers, and the rule for each
+
+| Set | Size | May be used for | Status |
+|---|---|---|---|
+| `retrieval_eval.json` (dev) | 32 | tuning, index design, debugging | contaminated by design — that is what it is for |
+| `retrieval_holdout.json` (held-out) | 30 | backend selection — **already spent** | contaminated: used three times (§4.4) |
+| `retrieval_test.json` (test) | 39 | reporting, once | clean |
+
+The rule that keeps the third one alive: **nothing may be chosen, tuned or
+diagnosed on the test set.** The moment it informs a decision it stops being a
+test set, and the honest response is to retire it and build a fourth — not to
+keep quoting its numbers. `eval_retrieval.py --set test` prints that warning on
+every run, because a discipline that lives only in documentation is the
+discipline that already failed once here.
+
+### 5.4 First publishable retrieval number
+
+BM25, 101 cards, measured on the clean set:
+
+| Set | Recall@1 | Recall@3 | MRR |
+|---|---|---|---|
+| dev (contaminated) | 78.1% | 84.4% | 0.812 |
+| held-out (contaminated) | 23.3% | 33.3% | 0.278 |
+| **test (clean)** | **28.2%** | **48.7%** | **0.376** |
+
+The clean number landing between the two contaminated ones is the expected
+shape: dev is inflated by leakage, and held-out is depressed by having been
+written entirely as paraphrases after the fact.
+
+Dense and rerank on the test set are **not reported here yet.** They require
+the embedding and cross-encoder weights, which the environment that produced
+this section could not load, and a number nobody has run does not go in a
+table. Reproduce with:
+
+```bash
+python scripts/eval_retrieval.py --backends bm25 dense rerank --set test
+```
+
+Those will be the first retrieval figures this project can quote without a
+caveat — including the honest answer to "did reranking actually help", which
+is currently unknown and should be stated as unknown.

@@ -1,0 +1,200 @@
+{
+  "_note": "第三份评测集：test。协议见 docs/EVALUATION.md §5。\n撰写：查询由一个**没有任何仓库上下文**的独立过程撰写——没读过卡片、没看过失败列表、没碰过任何检索输出，只拿到了问题域描述（「抑郁症patient的伴侣半夜会怎么打字求助」）和格式要求。这是为了避免查询被语料反向工程出来，也就是 dev 集当年被污染的那条路径。\n标注：expect 由人工阅读卡片内容判定，**标注过程中没有运行过检索器**。标注必须看卡片（否则无从判断谁该答），但不能看检索结果——否则标的就是「检索器现在会返回什么」，而不是「什么才是对的」。\n剔除：原始 42 条中剔除 3 条——1 条命中危机规则（会短路，测不到检索）、1 条与另一条情境重复、1 条在 93 张卡里找不到对口的卡（记为覆盖缺口，见 §5.2）。\n纪律：这份集合只在**报告**时使用。任何用它做的选型、调参或诊断都会让它失效，届时必须作废重做，而不是继续引用它的数字。",
+  "queries": [
+    {
+      "q": "他今天一句话都不想说",
+      "expect": "comm_055",
+      "paraphrase": true
+    },
+    {
+      "q": "他又说他是个废物",
+      "expect": "comm_001",
+      "paraphrase": true
+    },
+    {
+      "q": "她说跟我在一起太委屈我了",
+      "expect": "comm_002",
+      "paraphrase": true
+    },
+    {
+      "q": "他说他看不到以后有什么希望",
+      "expect": "comm_025",
+      "paraphrase": true
+    },
+    {
+      "q": "她说她好累，什么都不想动",
+      "expect": "comm_009",
+      "paraphrase": true
+    },
+    {
+      "q": "他一整天没吃东西",
+      "expect": "soma_004",
+      "paraphrase": true
+    },
+    {
+      "q": "她又失眠了，凌晨四点还醒着",
+      "expect": "soma_008",
+      "paraphrase": true
+    },
+    {
+      "q": "他说他胸口闷，喘不上气",
+      "expect": "soma_001",
+      "paraphrase": true
+    },
+    {
+      "q": "她说她浑身疼，但去医院查不出什么",
+      "expect": "soma_006",
+      "paraphrase": true
+    },
+    {
+      "q": "他突然就对我发火了，我也不知道为什么",
+      "expect": "comm_006",
+      "paraphrase": true
+    },
+    {
+      "q": "她说别管我，让我一个人待着",
+      "expect": "comm_013",
+      "paraphrase": true
+    },
+    {
+      "q": "他把手机关了，一天没理我",
+      "expect": "comm_004",
+      "paraphrase": true
+    },
+    {
+      "q": "她又把今天的约会取消了",
+      "expect": "comm_020",
+      "paraphrase": true
+    },
+    {
+      "q": "他不肯去看医生，说没必要",
+      "expect": "comm_008",
+      "paraphrase": true
+    },
+    {
+      "q": "她说吃药让她整个人木木的",
+      "expect": "soma_017",
+      "paraphrase": true
+    },
+    {
+      "q": "他偷偷把药停了",
+      "expect": "comm_014",
+      "paraphrase": true
+    },
+    {
+      "q": "她说做咨询没用，还要花钱",
+      "expect": "comm_008",
+      "paraphrase": true
+    },
+    {
+      "q": "他说我根本不懂他",
+      "expect": "comm_005",
+      "paraphrase": true
+    },
+    {
+      "q": "她说她什么都感觉不到了",
+      "expect": "soma_017",
+      "paraphrase": true
+    },
+    {
+      "q": "我刚跟他吵完架，现在该说什么",
+      "expect": "comm_042",
+      "paraphrase": true
+    },
+    {
+      "q": "她说我在可怜她",
+      "expect": "comm_046",
+      "paraphrase": true
+    },
+    {
+      "q": "他说我太累了，分手吧",
+      "expect": "comm_045",
+      "paraphrase": true
+    },
+    {
+      "q": "我有点撑不住了，不知道还能不能陪他",
+      "expect": "comm_019",
+      "paraphrase": true
+    },
+    {
+      "q": "说实话我有点烦他了，但又很愧疚",
+      "expect": "comm_037",
+      "paraphrase": true
+    },
+    {
+      "q": "她又提起去年那件事，一直哭",
+      "expect": "comm_007",
+      "paraphrase": true
+    },
+    {
+      "q": "今天是他爸的忌日，他特别安静",
+      "expect": "comm_021",
+      "paraphrase": true
+    },
+    {
+      "q": "他明天要回去上班，很焦虑",
+      "expect": "comm_031",
+      "paraphrase": true
+    },
+    {
+      "q": "她说她撑不下去这学期了",
+      "expect": "comm_050",
+      "paraphrase": true
+    },
+    {
+      "q": "我们在两个城市，他好几天没回消息",
+      "expect": "comm_035",
+      "paraphrase": true
+    },
+    {
+      "q": "视频的时候她一直沉默，我不知道说什么",
+      "expect": "comm_044",
+      "paraphrase": true
+    },
+    {
+      "q": "她说我问太多了，别烦她",
+      "expect": "comm_046",
+      "paraphrase": true
+    },
+    {
+      "q": "他明明不好，还说挺好的，我该不该追问",
+      "expect": "comm_067",
+      "paraphrase": true
+    },
+    {
+      "q": "她说她不想见任何人，包括我",
+      "expect": "comm_020",
+      "paraphrase": true
+    },
+    {
+      "q": "他躺了一整天，连澡都不洗",
+      "expect": "comm_053",
+      "paraphrase": true
+    },
+    {
+      "q": "她说她对不起我，让我找个更好的",
+      "expect": "comm_040",
+      "paraphrase": true
+    },
+    {
+      "q": "他说他配不上我",
+      "expect": "comm_063",
+      "paraphrase": true
+    },
+    {
+      "q": "他说他拖累了我，我该怎么回",
+      "expect": "comm_049",
+      "paraphrase": true
+    },
+    {
+      "q": "她今天看起来好一点，我该不该提生病的事",
+      "expect": "comm_017",
+      "paraphrase": true
+    },
+    {
+      "q": "我要出差三天，怕他一个人在家",
+      "expect": "comm_043",
+      "paraphrase": true
+    }
+  ]
+}
